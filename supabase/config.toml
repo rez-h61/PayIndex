@@ -1,0 +1,9 @@
+project_id = "payindex"
+[functions.qr-manage]
+verify_jwt = false
+[functions.qr-cleanup]
+verify_jwt = false
+[functions.directory-manage]
+verify_jwt = false
+[functions.directory-cleanup]
+verify_jwt = false
