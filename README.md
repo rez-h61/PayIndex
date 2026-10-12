@@ -113,3 +113,9 @@ Each QR can include an optional numeric DuitNow account number for manual transf
 Existing installations: apply `supabase/migrations/202610120001_optional_duitnow_account.sql` and redeploy the `directory-manage` Edge Function before deploying the updated frontend. Fresh installations can use the regenerated `supabase/setup-new.sql`.
 
 Existing payment options can be edited without uploading their QR again. A new payment option still requires an image. Apply `supabase/migrations/202610120002_edit_qr_without_upload.sql` and redeploy `directory-manage` before deploying this frontend. The optional field is labelled Transferable account number in the English UI.
+
+## Automatic QR formatting
+
+Existing and new QR images are automatically framed in the browser when previewed or viewed. A Web Worker locates a readable QR, crops surrounding bank artwork, adds a square white border of at least eight estimated modules, and verifies that the resulting QR decodes to identical raw bytes. Images with no readable QR, multiple detected QRs, or failed verification retain their original view. Processing is bounded to a 1600-pixel working image and a 20-second worker deadline; small codes in very large screenshots may fall back to the original.
+
+Original uploads, storage paths, and default Save QR downloads stay unchanged. Visitors can switch between the original and formatted views and optionally save the formatted PNG. Crop previews require no database migration, Edge Function deployment, or bulk rewrite of existing records. Deploy the updated frontend to enable the feature. Processing and cropped images stay in memory; they are not persisted offline. QR detection uses [jsQR](https://github.com/cozmo/jsQR).
