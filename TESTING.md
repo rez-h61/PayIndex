@@ -21,3 +21,7 @@ The provided project URL/publishable key are present locally, but this revision'
 After deployment, verify failed upload/commit/deletion recovery with network interruption; inspect the cleanup job; test original JPEG/WebP as well as PNG; test external image hosts with and without CORS; test sign-out and admin replacement with another open session; and test native iOS/Android install/share/save plus the two-version update prompt.
 
 Format validation is bounded and structural, not a full decoder or verification of QR ownership. Directory links are intentionally public and can be forwarded. Saved images cannot be recalled. External profile photo hosts control their own content and uptime. QR imports copy the original file into Storage and may require a manual upload when the source site blocks CORS.
+
+## Optional DuitNow account - 12 October 2026
+
+Production build (including service worker) and frontend/Edge Function TypeScript checks passed. The database suite passed with migration 003 applied, including numeric validation, leading-zero preservation, public reads and clearing the optional account. All 21 tests passed before the extra validator case was added; the final validation suite then passed all 5 cases. Mobile and desktop admin browser fixtures passed (2/2) using temporary fixture Supabase environment values. The browser flow checks add, persisted edit value, transfer-only display and hiding the section after clearing. Hosted deployment remains unapplied.

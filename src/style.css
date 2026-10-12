@@ -5,3 +5,6 @@
 .skip{clip-path:inset(50%)}.skip:focus{clip-path:none}
 .link-import{font-size:12px;color:#b2b2bc}.link-import summary{min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer}.link-import summary:focus-visible{outline:2px solid #eee;outline-offset:3px}.link-import>div{padding:14px 0;display:flex;flex-direction:column;gap:15px}.link-import label{display:flex;flex-direction:column;gap:10px}.link-import button{align-self:flex-start}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.duitnow-account { margin-top: 24px; padding: 24px; border: 1px solid var(--line, #deded8); border-radius: 16px; text-align: left; }
+.account-number { display: block; font-size: 1.4rem; overflow-wrap: anywhere; user-select: all; margin: 12px 0 16px; }

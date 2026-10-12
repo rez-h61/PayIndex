@@ -41,6 +41,8 @@ Deno.serve(async req => {
         catch { return json(req,{code:'invalid'},400); }
       }
     }
+    const account = text('duitnow_account')?.trim() ?? '';
+    if (action === 'save_qr' && account && !/^[0-9]{1,34}$/.test(account)) return json(req,{code:'invalid'},400);
     let path: string | null = null;
     const file = form.get('file');
     if (action === 'save_qr' || (action === 'save_person' && mode === 'upload' && file instanceof File)) {
@@ -51,7 +53,7 @@ Deno.serve(async req => {
       const uploaded = await service.storage.from(bucket).upload(path,content,{contentType:image.mime,cacheControl:'0',upsert:false});
       if (uploaded.error) return json(req,{code:'save_failed'},503);
     }
-    const { error } = await service.rpc('directory_mutate', { actor, action, entity_id: id, person, name:text('display_name'), qr_label:text('label'), avatar_mode:mode, image_url:mode==='link'?text('avatar_url'):null, asset_path:path, expected_updated_at:expected });
+    const { error } = await service.rpc('directory_mutate', { actor, action, entity_id: id, person, name:text('display_name'), qr_label:text('label'), avatar_mode:mode, image_url:mode==='link'?text('avatar_url'):null, asset_path:path, expected_updated_at:expected, duitnow_account: action === 'save_qr' ? account || null : null });
     if (error) {
       if (path) {
         // A lost response may hide a successful commit. Never delete a referenced

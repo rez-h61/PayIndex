@@ -105,3 +105,9 @@ On Windows browser tests use installed Chrome. On other platforms install Chromi
 `npm run test:backend` runs real REST/Storage/Edge checks against a **staging** project when `TEST_SUPABASE_URL`, `TEST_SUPABASE_PUBLISHABLE_KEY`, `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD` and `PAYINDEX_STAGING_TEST=true` are supplied in the shell. The staging admin must already be bootstrapped; only records created by that run are deleted. Never use your production directory for fixture tests.
 
 Read `TESTING.md` for the verification record and outstanding live-service/device checks. Change the name in `src/config.ts`, `vite.config.ts` and `index.html`; regenerate icons using `node scripts/icons.mjs` after editing the icon design.
+
+## Optional DuitNow account number
+
+Each QR can include an optional numeric DuitNow account number for manual transfers. Visitors can copy it from the QR page, marked Transfer only. Leaving it blank hides the section. Leading zeros are preserved. This is a displayed transfer detail; PayIndex does not initiate or enforce transfers in banking apps.
+
+Existing installations: apply `supabase/migrations/202610120001_optional_duitnow_account.sql` and redeploy the `directory-manage` Edge Function before deploying the updated frontend. Fresh installations can use the regenerated `supabase/setup-new.sql`.

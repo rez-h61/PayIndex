@@ -19,6 +19,7 @@ beforeAll(async()=>{
  create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text,created_at timestamptz default now());alter table storage.objects enable row level security;grant select,insert,update,delete on storage.objects to anon,authenticated;`);
  await db.exec(readFileSync('supabase/migrations/202610060001_payindex.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/202610060002_single_admin_directory.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/202610120001_optional_duitnow_account.sql','utf8'));
  await db.query('insert into auth.users values($1,$2,$3),($4,$5,$6)',[admin,'admin@example.test','{}',other,'other@example.test','{"role":"admin"}']);
  await db.query('insert into private.directory_admin(user_id) values($1)',[admin]);
 },30_000);
@@ -56,6 +57,15 @@ describe('single-admin directory migration and access boundaries',()=>{
   const duplicate='30000000-0000-4000-8000-000000000002',duplicatePath=`people/${person}/qr/${duplicate}/40000000-0000-4000-8000-000000000004.png`;
   await db.query(`insert into storage.objects(bucket_id,name) values('directory-assets',$1)`,[duplicatePath]);
   await expect(mutate({action:'save_qr',entity_id:duplicate,person,qr_label:'acme-pay',asset_path:duplicatePath})).rejects.toThrow();
+ });
+ it('stores optional transfer accounts as text, preserves leading zeros and rejects invalid values',async()=>{
+  const save=async(account:string|null)=>{const row=(await db.query<{updated_at:string}>('select updated_at from public.directory_qrs where id=$1',[qr])).rows[0];return mutate({action:'save_qr',entity_id:qr,person,qr_label:'ACME Pay',asset_path:file,expected_updated_at:row.updated_at,duitnow_account:account});};
+  await save('00123456789');
+  expect((await asRole('anon','','select duitnow_account from public.directory_qrs')).rows).toEqual([{duitnow_account:'00123456789'}]);
+  await expect(save('123abc')).rejects.toThrow();
+  await expect(save('1'.repeat(35))).rejects.toThrow();
+  await save('');
+  expect((await db.query('select duitnow_account from public.directory_qrs')).rows).toEqual([{duitnow_account:null}]);
  });
  it('serves only linked images through download; signing/listing and unlinked files are denied',async()=>{
   expect((await asRole('anon','','select name from storage.objects')).rows).toHaveLength(2);
