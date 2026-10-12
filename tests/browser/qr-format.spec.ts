@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import QRCode from 'qrcode';
+import jsQR from 'jsqr';
 import { readFileSync } from 'node:fs';
 
 test('existing bank QR auto-formats, toggles original and downloads both versions', async ({ page }) => {
@@ -27,20 +28,38 @@ test('existing bank QR auto-formats, toggles original and downloads both version
     return json({});
   });
   await page.goto('/qr/format-qr');
-  await expect(page.getByText('Auto-formatted with white space for scanning.')).toBeVisible({timeout:20000});
+  await expect(page.getByText('Clean QR ready. Original data verified.')).toBeVisible({timeout:20000});
   const image = page.getByAltText('Preview Friend’s Fictional bank receiving QR');
   const size = await image.evaluate((img: HTMLImageElement) => [img.naturalWidth,img.naturalHeight]);
-  expect(size[0]).toBe(size[1]); expect(size[1]).toBeLessThan(700);
+  expect(size[0]).toBe(size[1]); expect(size[1]).toBeGreaterThan(240);
+  const rendered = await image.evaluate((img: HTMLImageElement) => {
+    const canvas=document.createElement('canvas'); canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
+    const ctx=canvas.getContext('2d')!; ctx.drawImage(img,0,0);
+    return {pixels:[...ctx.getImageData(0,0,canvas.width,canvas.height).data],width:canvas.width,height:canvas.height};
+  });
+  expect(jsQR(new Uint8ClampedArray(rendered.pixels),rendered.width,rendered.height)?.data).toBe('PAYINDEX-FICTIONAL-QR-TEST-ONLY');
   await page.screenshot({path:`test-results/auto-format-${test.info().project.name}.png`,fullPage:true});
   await page.getByRole('button',{name:'Show original QR',exact:true}).click();
   await expect.poll(()=>image.evaluate((img:HTMLImageElement)=>img.naturalHeight)).toBe(700);
-  await page.getByRole('button',{name:'Show formatted QR',exact:true}).click();
+  await page.getByRole('button',{name:'Show clean QR',exact:true}).click();
   const originalDownload = page.waitForEvent('download');
   await page.getByRole('button',{name:'Save QR',exact:true}).click();
   expect(readFileSync((await (await originalDownload).path())!)).toEqual(original);
   const formattedDownload = page.waitForEvent('download');
-  await page.getByRole('button',{name:'Save formatted QR',exact:true}).click();
+  await page.getByRole('button',{name:'Save clean QR',exact:true}).click();
   const formatted = readFileSync((await (await formattedDownload).path())!);
   expect(formatted).not.toEqual(original);
   expect(formatted.subarray(1,4).toString()).toBe('PNG');
+  const pngPixels=await page.evaluate(async data=>{
+    const img=new Image();img.src=data;await img.decode();
+    const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+    const ctx=canvas.getContext('2d')!;ctx.drawImage(img,0,0);
+    return {pixels:[...ctx.getImageData(0,0,canvas.width,canvas.height).data],width:canvas.width,height:canvas.height};
+  },`data:image/png;base64,${formatted.toString('base64')}`);
+  expect(jsQR(new Uint8ClampedArray(pngPixels.pixels),pngPixels.width,pngPixels.height)?.data).toBe('PAYINDEX-FICTIONAL-QR-TEST-ONLY');
+  const vectorDownload=page.waitForEvent('download');
+  await page.getByRole('link',{name:'Download SVG',exact:true}).click();
+  const vector=readFileSync((await (await vectorDownload).path())!,'utf-8');
+  expect(vector).toContain('shape-rendering="crispEdges"');
+  expect(vector).not.toContain('PAYINDEX-FICTIONAL-QR-TEST-ONLY');
 });

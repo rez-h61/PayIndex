@@ -1,9 +1,10 @@
 import jsQR from 'jsqr';
+import QRCode, { type QRCodeSegment } from 'qrcode';
 
 export type QRFrame = { pixels: Uint8ClampedArray; width: number; height: number };
+export type CleanQRFrame = QRFrame & { svg: string };
 
-// Crop original pixels, never recreate or change the encoded payment payload.
-export function cropQR({ pixels, width, height }: QRFrame): QRFrame | null {
+function findSingleQR({ pixels, width, height }: QRFrame) {
   const code = jsQR(pixels, width, height);
   if (!code) return null;
   const corners = [code.location.topLeftCorner, code.location.topRightCorner,
@@ -20,6 +21,15 @@ export function cropQR({ pixels, width, height }: QRFrame): QRFrame | null {
   for (let y = top; y < bottom; y++) masked.fill(255, (y * width + left) * 4, (y * width + right) * 4);
   if (jsQR(masked, width, height)) return null;
 
+  return { code, left, top, right, bottom, w, h };
+}
+
+// Crop original pixels, never recreate or change the encoded payment payload.
+export function cropQR(frame: QRFrame): QRFrame | null {
+  const detected = findSingleQR(frame);
+  if (!detected) return null;
+  const { code, left, top, right, w, h } = detected;
+  const { pixels, width } = frame;
   // At least eight modules of white padding on every side, with square framing.
   const modules = 17 + code.version * 4;
   const padding = Math.max(16, Math.ceil(Math.max(w, h) / modules * 8));
@@ -34,4 +44,47 @@ export function cropQR({ pixels, width, height }: QRFrame): QRFrame | null {
   if (!verified || verified.binaryData.length !== code.binaryData.length ||
     !verified.binaryData.every((byte, i) => byte === code.binaryData[i])) return null;
   return { pixels: output, width: size, height: size };
+}
+
+export function cleanQR(frame: QRFrame): CleanQRFrame | null {
+  const detected = findSingleQR(frame);
+  if (!detected) return null;
+  const { code } = detected;
+  const segments: QRCodeSegment[] = [];
+  for (const chunk of code.chunks) {
+    if (chunk.type === 'byte' && 'bytes' in chunk) {
+      // Do not round-trip through Unicode: arbitrary payload bytes must survive.
+      segments.push({ mode: 'byte', data: new Uint8Array(chunk.bytes) });
+    } else if (chunk.type === 'numeric' && 'text' in chunk) {
+      segments.push({ mode: 'numeric', data: chunk.text });
+    } else if (chunk.type === 'alphanumeric' && 'text' in chunk) {
+      segments.push({ mode: 'alphanumeric', data: chunk.text });
+    } else {
+      // ECI/Kanji or other special encoding needs more than a byte comparison.
+      return null;
+    }
+  }
+  if (!segments.length) return null;
+  let generated: ReturnType<typeof QRCode.create>;
+  try { generated = QRCode.create(segments, { errorCorrectionLevel: 'M' }); }
+  catch { return null; }
+  const margin = 8, scale = 8, side = generated.modules.size + margin * 2, size = side * scale;
+  const output = new Uint8ClampedArray(size * size * 4).fill(255);
+  const paths: string[] = [];
+  for (let y = 0; y < generated.modules.size; y++) for (let x = 0; x < generated.modules.size; x++) {
+    if (!generated.modules.get(y, x)) continue;
+    paths.push(`M${x + margin} ${y + margin}h1v1h-1z`);
+    for (let dy = 0; dy < scale; dy++) for (let dx = 0; dx < scale; dx++) {
+      const offset = (((y + margin) * scale + dy) * size + (x + margin) * scale + dx) * 4;
+      output[offset] = output[offset + 1] = output[offset + 2] = 0;
+    }
+  }
+  const verified = jsQR(output, size, size);
+  if (!verified || verified.data !== code.data ||
+    JSON.stringify(verified.chunks) !== JSON.stringify(code.chunks) ||
+    verified.binaryData.length !== code.binaryData.length ||
+    !verified.binaryData.every((byte, i) => byte === code.binaryData[i])) return null;
+  // SVG contains only fixed markup and generated integer coordinates, never payload text.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${side} ${side}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h${side}v${side}H0z"/><path fill="#000" d="${paths.join('')}"/></svg>`;
+  return { pixels: output, width: size, height: size, svg };
 }

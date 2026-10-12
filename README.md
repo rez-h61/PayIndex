@@ -114,8 +114,12 @@ Existing installations: apply `supabase/migrations/202610120001_optional_duitnow
 
 Existing payment options can be edited without uploading their QR again. A new payment option still requires an image. Apply `supabase/migrations/202610120002_edit_qr_without_upload.sql` and redeploy `directory-manage` before deploying this frontend. The optional field is labelled Transferable account number in the English UI.
 
-## Automatic QR formatting
+## Clean QR rendering
 
-Existing and new QR images are automatically framed in the browser when previewed or viewed. A Web Worker locates a readable QR, crops surrounding bank artwork, adds a square white border of at least eight estimated modules, and verifies that the resulting QR decodes to identical raw bytes. Images with no readable QR, multiple detected QRs, or failed verification retain their original view. Processing is bounded to a 1600-pixel working image and a 20-second worker deadline; small codes in very large screenshots may fall back to the original.
+Existing and new QR images are processed locally when previewed or viewed. A Web Worker detects a single readable QR and generates a fresh black-and-white module grid with eight modules of white padding. Numeric and alphanumeric segments retain their text and encoding modes; byte segments retain the original bytes without a Unicode round trip. The result is decoded again and must match the source raw bytes, decoded text, and segment structure before being used. The same verified matrix produces the SVG preview and a PNG rendered at eight pixels per module.
 
-Original uploads, storage paths, and default Save QR downloads stay unchanged. Visitors can switch between the original and formatted views and optionally save the formatted PNG. Crop previews require no database migration, Edge Function deployment, or bulk rewrite of existing records. Deploy the updated frontend to enable the feature. Processing and cropped images stay in memory; they are not persisted offline. QR detection uses [jsQR](https://github.com/cozmo/jsQR).
+Original uploads, storage paths, and default Save QR downloads stay unchanged. Visitors can switch between Clean QR and Original, save the clean PNG, or download its SVG. No database migration, Edge Function deployment, or bulk rewrite is needed. Deploy the updated frontend to enable it.
+
+Unreadable images, multiple detected QRs, failed verification, oversized payloads, and unsupported encodings (including ECI and Kanji) retain the original image. Detection uses a maximum 1600-pixel working image and a 20-second worker deadline. Payloads are not logged, followed as URLs, or sent to another service; generated images stay in memory. Original expiry or transaction restrictions are not changed. These checks verify data preservation, not acceptance by every banking application; scan-test Clean QR with the intended bank apps before relying on it.
+
+Uses [jsQR](https://github.com/cozmo/jsQR) for decoding and [node-qrcode](https://github.com/soldair/node-qrcode) for generation.

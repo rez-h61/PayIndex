@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { objectURL, releaseURL } from './lib';
-import type { QRFrame } from './qr-format';
+import type { CleanQRFrame } from './qr-format';
 
 export function useFormattedQR(blob: Blob | null) {
-  const [result, setResult] = useState<{ source: Blob; url: string; blob: Blob } | null>(null);
+  const [result, setResult] = useState<{ source: Blob; url: string; pngURL: string; blob: Blob; svg: Blob } | null>(null);
   const [checking, setChecking] = useState(false);
   useEffect(() => {
     setResult(null);
     setChecking(!!blob);
     if (!blob) return;
-    let cancelled = false, url = '';
+    let cancelled = false, url = '', pngURL = '';
     let worker: Worker | undefined;
     const timeout = window.setTimeout(() => { worker?.terminate(); if (!cancelled) setChecking(false); cancelled = true; }, 20_000);
     void (async () => {
@@ -28,7 +28,7 @@ export function useFormattedQR(blob: Blob | null) {
         const frame = context.getImageData(0, 0, canvas.width, canvas.height);
         worker = new Worker(new URL('./qr-format.worker.ts', import.meta.url), { type: 'module' });
         worker.onerror = () => { worker?.terminate(); clearTimeout(timeout); if (!cancelled) setChecking(false); };
-        worker.onmessage = async (event: MessageEvent<QRFrame | null>) => {
+        worker.onmessage = async (event: MessageEvent<CleanQRFrame | null>) => {
           worker?.terminate(); clearTimeout(timeout);
           if (cancelled) return;
           try {
@@ -38,7 +38,11 @@ export function useFormattedQR(blob: Blob | null) {
               const image = context.createImageData(width, height); image.data.set(pixels);
               context.putImageData(image, 0, 0);
               const cropped = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-              if (cropped && !cancelled) { url = objectURL(cropped); setResult({ source: blob, url, blob: cropped }); }
+              if (cropped && !cancelled) {
+                const svg = new Blob([event.data.svg], { type: 'image/svg+xml' });
+                url = objectURL(svg); pngURL = objectURL(cropped);
+                setResult({ source: blob, url, pngURL, blob: cropped, svg });
+              }
             }
           } catch {
             // Keep the original if PNG encoding or canvas access fails.
@@ -47,7 +51,7 @@ export function useFormattedQR(blob: Blob | null) {
         worker.postMessage({ pixels: frame.data, width: frame.width, height: frame.height }, [frame.data.buffer]);
       } finally { bitmap.close(); }
     })().catch(() => { clearTimeout(timeout); worker?.terminate(); if (!cancelled) setChecking(false); });
-    return () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); if (url) releaseURL(url); };
+    return () => { cancelled = true; clearTimeout(timeout); worker?.terminate(); if (url) releaseURL(url); if (pngURL) releaseURL(pngURL); };
   }, [blob]);
   return { formatted: result?.source === blob ? result : null, checking };
 }
