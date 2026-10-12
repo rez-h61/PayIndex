@@ -37,3 +37,7 @@ All 22 unit/database tests passed with the fourth migration applied. Existing ac
 ## Clean QR regeneration - 13 October 2026
 
 34 unit/database tests passed. Seven new cases cover numeric data with leading zeros, alphanumeric data, fictional payment-style data, URLs, UTF-8 text, mixed segments with non-UTF-8/null bytes, and unreadable/multiple-code fallback. Generated QR data is compared by raw bytes, decoded text and segment structure. Generated pixels are strictly opaque black or white, input pixels are unchanged, and SVG contains generated geometry without payload text. Production TypeScript/PWA build passed with QR generation isolated in the worker. Browser fixture checks verify rasterized SVG and downloaded PNG decode to the fictional source payload, original downloads remain byte-for-byte identical, SVG downloads work, and original/clean toggling works. This supersedes auto-crop as the displayed derivative; real banking-app acceptance remains untested.
+
+## Compact QR actions - 13 October 2026
+
+Four browser fixture checks passed across mobile and desktop. Secondary actions are hidden by default in More options. View original and Back to clean QR switch views, Save original preserves the uploaded bytes, Save QR downloads a decodable Clean QR PNG when available, and SVG download remains available in the expanded menu. Admin regression covers original-image fallback and downloads when Clean QR cannot be generated. Mobile screenshot was visually inspected. QR generation and backend logic are unchanged.

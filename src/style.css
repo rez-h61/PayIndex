@@ -9,5 +9,17 @@
 .duitnow-account { margin-top: 24px; padding: 24px; border: 1px solid var(--line, #deded8); border-radius: 16px; text-align: left; }
 .account-number { display: block; font-size: 1.4rem; overflow-wrap: anywhere; user-select: all; margin: 12px 0 16px; }
 
-.qr-format-controls { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 16px 0; }
-.qr-format-controls .footnote { margin: 0; }
+.qr-format-status { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; }
+.qr-format-status .footnote { margin: 0; }
+.clean-qr-badge { display: inline-flex; align-items: center; gap: 6px; color: #aaaab2; font-size: 11px; }
+.qr-format-status .text-button { font-size: 11px; }
+.qr-options { margin-top: 8px; text-align: left; }
+.qr-options summary { display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; font-size: 12px; color: #aaaab2; cursor: pointer; list-style: none; }
+.qr-options summary::-webkit-details-marker { display: none; }
+.qr-options summary::after { content: '+'; font-size: 16px; }
+.qr-options[open] summary::after { content: '−'; }
+.qr-options summary:focus-visible { outline: 2px solid #eee; outline-offset: 2px; border-radius: 6px; }
+.qr-options > div { display: flex; flex-direction: column; border: 1px solid #303137; border-radius: 10px; overflow: hidden; margin-top: 4px; }
+.qr-options > div > button, .qr-options > div > a { display: flex; align-items: center; gap: 9px; justify-content: flex-start; min-height: 44px; padding: 12px 16px; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: #0b0c0e; color: #ccc; font-size: 12px; text-decoration: none; }
+.qr-options > div > :not(:last-child) { border-bottom: 1px solid #24252a; }
+.qr-options > div > :hover { background: #191a1e; }
