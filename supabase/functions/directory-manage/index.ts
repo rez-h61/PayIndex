@@ -45,7 +45,7 @@ Deno.serve(async req => {
     if (action === 'save_qr' && account && !/^[0-9]{1,34}$/.test(account)) return json(req,{code:'invalid'},400);
     let path: string | null = null;
     const file = form.get('file');
-    if (action === 'save_qr' || (action === 'save_person' && mode === 'upload' && file instanceof File)) {
+    if ((action === 'save_qr' && file instanceof File) || (action === 'save_person' && mode === 'upload' && file instanceof File)) {
       if (!(file instanceof File)) return json(req,{code:'invalid_image'},400);
       const content = new Uint8Array(await file.arrayBuffer()), image = inspectImage(content);
       if (!image || image.mime !== file.type) return json(req,{code:'invalid_image'},400);

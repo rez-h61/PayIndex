@@ -25,3 +25,7 @@ Format validation is bounded and structural, not a full decoder or verification 
 ## Optional DuitNow account - 12 October 2026
 
 Production build (including service worker) and frontend/Edge Function TypeScript checks passed. The database suite passed with migration 003 applied, including numeric validation, leading-zero preservation, public reads and clearing the optional account. All 21 tests passed before the extra validator case was added; the final validation suite then passed all 5 cases. Mobile and desktop admin browser fixtures passed (2/2) using temporary fixture Supabase environment values. The browser flow checks add, persisted edit value, transfer-only display and hiding the section after clearing. Hosted deployment remains unapplied.
+
+## Edit existing QR without uploading - 12 October 2026
+
+All 22 unit/database tests passed with the fourth migration applied. Existing account edits retain the original storage path even when its upload is older than the one-hour new-upload window. Mobile and desktop admin fixture tests passed (2/2): a new entry requires an image, existing image previews load, account details can be cleared without upload, and image replacement still works. Production/PWA build and Edge Function TypeScript checks passed. UI account wording is Transferable account number; date formatting uses English. Deployment requires migration 202610120002 and the updated directory-manage function.

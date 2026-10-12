@@ -111,3 +111,5 @@ Read `TESTING.md` for the verification record and outstanding live-service/devic
 Each QR can include an optional numeric DuitNow account number for manual transfers. Visitors can copy it from the QR page, marked Transfer only. Leaving it blank hides the section. Leading zeros are preserved. This is a displayed transfer detail; PayIndex does not initiate or enforce transfers in banking apps.
 
 Existing installations: apply `supabase/migrations/202610120001_optional_duitnow_account.sql` and redeploy the `directory-manage` Edge Function before deploying the updated frontend. Fresh installations can use the regenerated `supabase/setup-new.sql`.
+
+Existing payment options can be edited without uploading their QR again. A new payment option still requires an image. Apply `supabase/migrations/202610120002_edit_qr_without_upload.sql` and redeploy `directory-manage` before deploying this frontend. The optional field is labelled Transferable account number in the English UI.
