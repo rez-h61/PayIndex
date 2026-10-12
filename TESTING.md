@@ -41,3 +41,7 @@ All 22 unit/database tests passed with the fourth migration applied. Existing ac
 ## Compact QR actions - 13 October 2026
 
 Four browser fixture checks passed across mobile and desktop. Secondary actions are hidden by default in More options. View original and Back to clean QR switch views, Save original preserves the uploaded bytes, Save QR downloads a decodable Clean QR PNG when available, and SVG download remains available in the expanded menu. Admin regression covers original-image fallback and downloads when Clean QR cannot be generated. Mobile screenshot was visually inspected. QR generation and backend logic are unchanged.
+
+## PayIndex P / index-tab identity - 13 October 2026
+
+Draft D was rebuilt as vector geometry, used by the header and favicon. scripts/icons.mjs renders that same master through Chrome at native 192px/512px app icon and 180px Apple touch sizes; the maskable icon uses a full dark background with the foreground inside the central safe area. Production/PWA build and eight mobile/desktop browser checks passed. The 512px icon and mobile header screenshot were visually inspected. Updated assets require frontend deployment; installed home-screen icons may refresh on the operating system/browser schedule.

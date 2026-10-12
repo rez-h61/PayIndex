@@ -111,7 +111,7 @@ export default function App() {
   const startPreview = () => { location.href = '/?demo=1'; };
   return <div className="app">
     <a href="#main" className="skip">Skip to content</a>
-    <header className="topbar"><button className="wordmark" onClick={() => navigate('/')} aria-label={`${APP_NAME} home`}><span className="brand-mark"><i/><i/><i/></span>{APP_NAME}</button><div className="header-actions"><button className="nav-link" onClick={() => navigate(admin ? '/admin' : '/admin/login')}>{admin ? 'Manage directory' : <><LockKeyhole size={14}/>Admin</>}</button><button className="icon-button" onClick={() => setHelp(true)} aria-label="Install and help"><CircleHelp size={18}/></button></div></header>
+    <header className="topbar"><button className="wordmark" onClick={() => navigate('/')} aria-label={`${APP_NAME} home`}><img className="brand-mark" src="/brand-mark.svg" alt="" width={28} height={28}/>{APP_NAME}</button><div className="header-actions"><button className="nav-link" onClick={() => navigate(admin ? '/admin' : '/admin/login')}>{admin ? 'Manage directory' : <><LockKeyhole size={14}/>Admin</>}</button><button className="icon-button" onClick={() => setHelp(true)} aria-label="Install and help"><CircleHelp size={18}/></button></div></header>
     {demo && <div className="demo-banner"><span>DESIGN PREVIEW</span> Fictional people · no real payment QRs <a href="/">Exit preview</a></div>}
     {needRefresh && <div className="update-banner">An update is ready.<button disabled={busy || !!editor || isEditingPerson} onClick={() => void updateServiceWorker(true)}>Update now</button></div>}
     <main id="main" className={isAdminPage ? 'main admin-main' : 'main'}>
