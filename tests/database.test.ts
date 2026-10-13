@@ -25,6 +25,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('supabase/migrations/20261013084229_restrict_directory_mutate_execute.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013085314_qr_palette_and_bulk_style.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013100526_separate_qr_design_colour.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261013104617_scope_bulk_qr_style_update.sql','utf8'));
  await db.query('insert into auth.users values($1,$2,$3),($4,$5,$6)',[admin,'admin@example.test','{}',other,'other@example.test','{"role":"admin"}']);
  await db.query('insert into private.directory_admin(user_id) values($1)',[admin]);
 },30_000);
