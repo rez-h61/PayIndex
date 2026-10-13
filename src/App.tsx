@@ -1,3 +1,4 @@
+import { WebsiteShare } from './WebsiteShare';
 import { qrDownloadCard } from './qr-download';
 import { BulkQRStyleEditor } from './BulkQRStyleEditor';
 import type { QRStyle } from './qr-style';
@@ -142,7 +143,7 @@ export default function App() {
     </main><footer className="footer"><span>Made for the people you know.</span><span className="footer-mark">PAYINDEX <i/> RECEIVING ONLY</span></footer>
     {editor && person && admin && <QREditor person={person} existing={editor === 'new' ? null : editor} onClose={() => setEditor(null)} onBusy={setBusy} onSaved={async pending => { setEditor(null); await refresh(); setNotice(pending ? 'QR saved. Old file cleanup is queued.' : 'QR saved.'); }}/>} 
     {styleEditor&&admin&&<QRStyleDialog qr={styleEditor} qrs={qrs} people={people} onBulkSaved={async(reset,count)=>{setStyleEditor(null);await refresh();setNotice(reset?`All ${count} QRs reset to default.`:`Design applied to all ${count} QRs.`);}} locked={busy} onClose={()=>setStyleEditor(null)} onBusy={setBusy} onSaved={async()=>{setStyleEditor(null);await refresh();setNotice('QR design saved.');}}/>}
-    {help && <Modal title="A little closer." onClose={() => setHelp(false)}><p className="muted">Keep PayIndex on your home screen.</p>{installPrompt && <button className="primary" onClick={async () => { await installPrompt.prompt(); setInstallPrompt(null); }}>Install PayIndex</button>}<ul className="help-list"><li><strong>iPhone / iPad</strong><span>Safari → Share → Add to Home Screen.</span></li><li><strong>Android / desktop</strong><span>Use Install app in your browser’s menu.</span></li></ul><p className="footnote">Anyone with the link can view this directory. A connection is needed to load QRs. Only the admin can edit.</p><button className="text-button" onClick={async () => { try { await navigator.clipboard.writeText(location.origin); setNotice('Directory link copied.'); setHelp(false); } catch { setNotice('Copy the website address from your browser.'); setHelp(false); } }}><Copy size={16}/>Copy directory link</button></Modal>}
+    {help && <Modal title="A little closer." onClose={() => setHelp(false)}><p className="muted">Keep PayIndex on your home screen.</p>{installPrompt && <button className="primary" onClick={async () => { await installPrompt.prompt(); setInstallPrompt(null); }}>Install PayIndex</button>}<ul className="help-list"><li><strong>iPhone / iPad</strong><span>Safari → Share → Add to Home Screen.</span></li><li><strong>Android / desktop</strong><span>Use Install app in your browser’s menu.</span></li></ul><p className="footnote">Anyone with the link can view this directory. A connection is needed to load QRs. Only the admin can edit.</p><WebsiteShare admin={admin} demo={demo}/></Modal>}
   </div>;
 }
 

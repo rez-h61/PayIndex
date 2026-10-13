@@ -26,11 +26,30 @@ beforeAll(async()=>{
  await db.exec(readFileSync('supabase/migrations/20261013085314_qr_palette_and_bulk_style.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013100526_separate_qr_design_colour.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013104617_scope_bulk_qr_style_update.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261013114437_website_share_qr.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261013122110_restrict_share_settings_writes.sql','utf8'));
  await db.query('insert into auth.users values($1,$2,$3),($4,$5,$6)',[admin,'admin@example.test','{}',other,'other@example.test','{"role":"admin"}']);
  await db.query('insert into private.directory_admin(user_id) values($1)',[admin]);
 },30_000);
 afterAll(async()=>{await db?.close();});
 describe('single-admin directory migration and access boundaries',()=>{
+ it('shares website settings publicly but permits only the admin backend to change the link',async()=>{
+  await db.exec('begin');
+  try {
+   const initial=(await asRole('anon','','select share_url,updated_at from public.directory_settings')).rows[0];
+   expect((await db.query("select has_table_privilege('authenticated','public.directory_settings','update') as writable")).rows[0]).toEqual({writable:false});
+   expect(initial.share_url).toBe('https://payindex-kokoro.vercel.app/');
+   expect((await db.query("select has_function_privilege('anon','public.directory_save_share_url(uuid,text,timestamptz)','execute') as anon,has_function_privilege('authenticated','public.directory_save_share_url(uuid,text,timestamptz)','execute') as authenticated")).rows[0]).toEqual({anon:false,authenticated:false});
+   const rejected=async(actor:string,link:string)=>{
+    await db.exec('savepoint rejected');
+    try{await expect(db.query('select public.directory_save_share_url($1,$2,$3)',[actor,link,initial.updated_at])).rejects.toThrow();}finally{await db.exec('rollback to savepoint rejected');}
+   };
+   await rejected(other,'https://example.test/');await rejected(admin,'javascript:alert(1)');
+   await db.query('select public.directory_save_share_url($1,$2,$3)',[admin,'https://example.test/payindex',initial.updated_at]);
+   expect((await asRole('anon','','select share_url from public.directory_settings')).rows[0]).toEqual({share_url:'https://example.test/payindex'});
+   await rejected(admin,'https://stale.example.test/');
+  } finally {await db.exec('rollback');}
+ });
  it('has exactly one admin, with no signup membership or self-promotion',async()=>{
   expect((await db.query('select * from public.profiles')).rows).toHaveLength(0);
   expect((await asRole('authenticated',admin,'select public.is_directory_admin() as allowed')).rows[0]).toEqual({allowed:true});

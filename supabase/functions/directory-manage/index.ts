@@ -32,7 +32,15 @@ Deno.serve(async req => {
     const form = await new Response(bytes, { headers: { 'Content-Type': req.headers.get('Content-Type') ?? '' } }).formData();
     const text = (key: string) => typeof form.get(key) === 'string' ? String(form.get(key)) : null;
     const action = text('action'), id = text('id'), person = text('person_id'), mode = text('avatar_mode'), expected = text('expected_updated_at');
-    if ((action !== 'bulk_qr_style' && (!id || !uuid.test(id))) || !['save_person','delete_person','save_qr','delete_qr','save_qr_style','bulk_qr_style'].includes(action ?? '')) return json(req,{code:'invalid'},400);
+    if ((!['bulk_qr_style','save_share_url'].includes(action ?? '') && (!id || !uuid.test(id))) || !['save_person','delete_person','save_qr','delete_qr','save_qr_style','bulk_qr_style','save_share_url'].includes(action ?? '')) return json(req,{code:'invalid'},400);
+    if (action === 'save_share_url') {
+      let link:URL;
+      try {link=new URL(text('share_url')??'');if(link.protocol!=='https:'||link.username||link.password||link.href.length>2048||!expected||!Number.isFinite(Date.parse(expected)))throw new Error();}
+      catch {return json(req,{code:'invalid_link'},400);}
+      const {error}=await service.rpc('directory_save_share_url',{actor,link:link.href,expected_updated_at:expected});
+      if(error)return json(req,{code:error.code==='23505'?'conflict':error.code==='42501'?'forbidden':'save_failed'},error.code==='42501'?403:409);
+      return json(req,{saved:true});
+    }
     if (action === 'bulk_qr_style') {
       let design: unknown, snapshot: unknown;
       try { design=JSON.parse(text('qr_style')??'null'); snapshot=JSON.parse(text('snapshot')??'null'); } catch { return json(req,{code:'invalid'},400); }

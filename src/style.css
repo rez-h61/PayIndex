@@ -55,3 +55,5 @@
 
 .qr-shape-sample{width:16px;height:16px;fill:currentColor;flex-shrink:0}
 .qr-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:250px;font-size:13px;color:#60616a}
+
+.website-share{margin-top:24px;gap:14px}.website-share-link{overflow-wrap:anywhere;font-size:12px}.website-share details form{margin-top:18px}
