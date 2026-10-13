@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import QRCode from 'qrcode';
-import { Copy, QrCode } from 'lucide-react';
+import { ArrowDownToLine, Copy, QrCode } from 'lucide-react';
 import { manageDirectory, supabase } from './lib';
 import { useFormattedQR } from './useFormattedQR';
 import type { QRStyle } from './qr-style';
@@ -48,8 +48,8 @@ export function WebsiteShare({admin,demo}: {admin:boolean;demo:boolean}) {
   }
   return <div className="form website-share">
     <button type="button" disabled={!settings} onClick={()=>setShown(value=>!value)}><QrCode size={16}/>{shown?'Hide PayIndex QR':'Share PayIndex QR'}</button>
-    {shown&&<><div className="qr-style-preview">{formatted?<img src={formatted.url} alt="PayIndex website share QR"/>:<p role="status">{!blob||checking?'Preparing website QR…':'The share QR could not be verified. Close and reopen this window to retry.'}</p>}</div><p className="footnote">Scan to open PayIndex.</p><a className="website-share-link" href={settings?.share_url} target="_blank" rel="noreferrer">{settings?.share_url}</a>{formatted&&<a href={formatted.pngURL} download="payindex-website-qr.png">Download QR</a>}</>}
-    <button type="button" className="text-button" disabled={!settings} onClick={async()=>{try{await navigator.clipboard.writeText(settings!.share_url);setMessage('Directory link copied.');}catch{setError('Copy the website link shown above.');setShown(true);}}}><Copy size={16}/>Copy directory link</button>
+    {shown&&<><div className="qr-style-preview">{formatted?<img src={formatted.url} alt="PayIndex website share QR"/>:<p role="status">{!blob||checking?'Preparing website QR…':'The share QR could not be verified. Close and reopen this window to retry.'}</p>}</div><p className="footnote">Scan to open PayIndex.</p>{formatted&&<button type="button" className="primary full" onClick={()=>{const link=document.createElement('a');link.href=formatted.pngURL;link.download='payindex-website-qr.png';link.click();}}><ArrowDownToLine size={18}/>Download QR</button>}</>}
+    <button type="button" className="text-button" disabled={!settings} onClick={async()=>{try{await navigator.clipboard.writeText(settings!.share_url);setMessage('Directory link copied.');}catch{setError('Copy is unavailable in this browser. Download or scan the QR instead.');setShown(true);}}}><Copy size={16}/>Copy directory link</button>
     {admin&&!demo&&<details><summary>Edit share link</summary><form className="form" onSubmit={save}><label>Website link<input type="url" required maxLength={2048} value={draft} disabled={busy||!settings} onChange={event=>setDraft(event.target.value)}/></label><p className="footnote">This changes the shared link for everyone. The QR design is fixed.</p><button className="primary" disabled={busy||!settings}>{busy?'Saving…':'Save share link'}</button></form></details>}
     {message&&<p role="status">{message}</p>}{error&&<p className="error" role="alert">{error}</p>}
   </div>;
