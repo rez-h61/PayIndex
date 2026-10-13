@@ -27,7 +27,13 @@ test('existing bank QR auto-formats, toggles original and downloads both version
     if (url.pathname.endsWith('directory_qrs')) return json([{id:'format-qr',person_id:'format-person',label:'Fictional bank',label_key:'fictionalbank',storage_path:'fixture.png',updated_at:'2026-10-13T00:00:00Z'}]);
     return json({});
   });
+  // Keep generation pending long enough to catch an original-image flash.
+  await page.route('**/*qr-format.worker*',async route=>{
+    await new Promise(resolve=>setTimeout(resolve,800));await route.continue();
+  });
   await page.goto('/qr/format-qr');
+  await expect(page.getByText('Preparing QR…',{exact:true})).toBeVisible();
+  await expect(page.locator('.qr-stage img')).toHaveCount(0);
   await expect(page.getByText('Clean QR',{exact:true})).toBeVisible({timeout:20000});
   const image = page.getByAltText('Preview Friend’s Fictional bank receiving QR');
   const size = await image.evaluate((img: HTMLImageElement) => [img.naturalWidth,img.naturalHeight]);
