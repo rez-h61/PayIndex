@@ -1,3 +1,5 @@
+import { BulkQRStyleEditor } from './BulkQRStyleEditor';
+import type { QRStyle } from './qr-style';
 import { QRStyleEditor } from './QRStyleEditor';
 import { useFormattedQR } from './useFormattedQR';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
@@ -138,7 +140,7 @@ export default function App() {
       </div>}
     </main><footer className="footer"><span>Made for the people you know.</span><span className="footer-mark">PAYINDEX <i/> RECEIVING ONLY</span></footer>
     {editor && person && admin && <QREditor person={person} existing={editor === 'new' ? null : editor} onClose={() => setEditor(null)} onBusy={setBusy} onSaved={async pending => { setEditor(null); await refresh(); setNotice(pending ? 'QR saved. Old file cleanup is queued.' : 'QR saved.'); }}/>} 
-    {styleEditor&&admin&&<QRStyleDialog qr={styleEditor} locked={busy} onClose={()=>setStyleEditor(null)} onBusy={setBusy} onSaved={async()=>{setStyleEditor(null);await refresh();setNotice('QR design saved.');}}/>}
+    {styleEditor&&admin&&<QRStyleDialog qr={styleEditor} qrs={qrs} people={people} onBulkSaved={async(reset,count)=>{setStyleEditor(null);await refresh();setNotice(reset?`All ${count} QRs reset to default.`:`Design applied to all ${count} QRs.`);}} locked={busy} onClose={()=>setStyleEditor(null)} onBusy={setBusy} onSaved={async()=>{setStyleEditor(null);await refresh();setNotice('QR design saved.');}}/>}
     {help && <Modal title="A little closer." onClose={() => setHelp(false)}><p className="muted">Keep PayIndex on your home screen.</p>{installPrompt && <button className="primary" onClick={async () => { await installPrompt.prompt(); setInstallPrompt(null); }}>Install PayIndex</button>}<ul className="help-list"><li><strong>iPhone / iPad</strong><span>Safari → Share → Add to Home Screen.</span></li><li><strong>Android / desktop</strong><span>Use Install app in your browser’s menu.</span></li></ul><p className="footnote">Anyone with the link can view this directory. A connection is needed to load QRs. Only the admin can edit.</p><button className="text-button" onClick={async () => { try { await navigator.clipboard.writeText(location.origin); setNotice('Directory link copied.'); setHelp(false); } catch { setNotice('Copy the website address from your browser.'); setHelp(false); } }}><Copy size={16}/>Copy directory link</button></Modal>}
   </div>;
 }
@@ -186,9 +188,11 @@ function Viewer({qr, person, demo, admin, onCustomize}: {qr:QR;person:Person;dem
   </section>;
 }
 
-function QRStyleDialog({qr,locked,onClose,onBusy,onSaved}: {qr:QR;locked:boolean;onClose:()=>void;onBusy:(busy:boolean)=>void;onSaved:()=>Promise<void>}) {
+function QRStyleDialog({qr,qrs,people,locked,onClose,onBusy,onSaved,onBulkSaved}: {qr:QR;qrs:QR[];people:Person[];locked:boolean;onClose:()=>void;onBusy:(busy:boolean)=>void;onSaved:()=>Promise<void>;onBulkSaved:(reset:boolean,count:number)=>Promise<void>}) {
   const {value,failed}=useStoredImage(qr.storage_path);
-  return <Modal className="qr-style-dialog" title="Customize QR" onClose={onClose} locked={locked}><QRStyleEditor qr={qr} blob={value?.blob??null} loadError={failed} onClose={onClose} onBusy={onBusy} onSaved={onSaved}/></Modal>;
+  const [draft,setDraft]=useState<QRStyle|null>(qr.qr_style??null);
+  const [bulk,setBulk]=useState<{design:QRStyle|null}|null>(null);
+  return <Modal className="qr-style-dialog" title={bulk?'All QR designs':'Customize QR'} onClose={onClose} locked={locked}>{bulk?<BulkQRStyleEditor qrs={qrs} design={bulk.design} labelFor={q=>`${people.find(person=>person.id===q.person_id)?.display_name??'Person'} · ${q.label}`} onBack={()=>setBulk(null)} onClose={onClose} onBusy={onBusy} onSaved={onBulkSaved}/>:<QRStyleEditor qr={qr} blob={value?.blob??null} loadError={failed} onClose={onClose} onBusy={onBusy} onSaved={onSaved} initialStyle={draft} onBulk={(design,current)=>{setDraft(current);setBulk({design});}}/>}</Modal>;
 }
 
 function DuitNowAccount({account}: {account?: string | null}) {

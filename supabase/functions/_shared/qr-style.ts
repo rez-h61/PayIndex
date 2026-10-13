@@ -3,6 +3,17 @@ export const QR_PALETTES = {
   payindex: { name: 'PayIndex', body: '#202735', eye: '#943847' },
   midnight: { name: 'Midnight', body: '#24354b', eye: '#374c68' },
   cyber: { name: 'Cyber', body: '#0b5078', eye: '#036f9d' },
+  pink: { name: 'Pink', body: '#ed3068', eye: '#ed3068' },
+  crimson: { name: 'Crimson', body: '#a61d3d', eye: '#a61d3d' },
+  coral: { name: 'Coral', body: '#bb453d', eye: '#bb453d' },
+  amber: { name: 'Amber', body: '#8a5708', eye: '#8a5708' },
+  olive: { name: 'Olive', body: '#596923', eye: '#596923' },
+  forest: { name: 'Forest', body: '#196542', eye: '#196542' },
+  teal: { name: 'Teal', body: '#08716c', eye: '#08716c' },
+  ocean: { name: 'Ocean', body: '#165fa2', eye: '#165fa2' },
+  indigo: { name: 'Indigo', body: '#44429b', eye: '#44429b' },
+  violet: { name: 'Violet', body: '#743b98', eye: '#743b98' },
+  plum: { name: 'Plum', body: '#7a315b', eye: '#7a315b' },
 } as const;
 export const QR_SHAPES = ['square', 'rounded', 'dots', 'classy'] as const;
 export type QRStyle = { palette: keyof typeof QR_PALETTES; shape: typeof QR_SHAPES[number]; logo: boolean };

@@ -23,6 +23,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('supabase/migrations/202610120002_edit_qr_without_upload.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013060157_per_qr_design.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013084229_restrict_directory_mutate_execute.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261013085314_qr_palette_and_bulk_style.sql','utf8'));
  await db.query('insert into auth.users values($1,$2,$3),($4,$5,$6)',[admin,'admin@example.test','{}',other,'other@example.test','{"role":"admin"}']);
  await db.query('insert into private.directory_admin(user_id) values($1)',[admin]);
 },30_000);
@@ -98,6 +99,32 @@ describe('single-admin directory migration and access boundaries',()=>{
    await save(admin,null,after);
    expect((await db.query('select qr_style from public.directory_qrs where id=$1',[qr])).rows[0]).toEqual({qr_style:null});
   } finally {await db.exec('rollback');}
+ });
+ it('applies and resets a complete directory snapshot atomically and only through the admin backend',async()=>{
+  await db.exec('begin');
+  const rejected=async(fn:()=>Promise<unknown>)=>{await db.exec('savepoint rejected');try{await expect(fn()).rejects.toThrow();}finally{await db.exec('rollback to savepoint rejected');}};
+  try{
+   const second='30000000-0000-4000-8000-000000000009';
+   const path=`people/${person}/qr/${second}/40000000-0000-4000-8000-000000000009.png`;
+   await db.query('insert into public.directory_qrs(id,person_id,label,storage_path) values($1,$2,$3,$4)',[second,person,'Second bank',path]);
+   const snapshot=async()=>(await db.query('select id,updated_at from public.directory_qrs order by id')).rows;
+   const initial=await snapshot(),design={palette:'pink',shape:'rounded',logo:true};
+   const apply=(style:unknown,rows:unknown,actor=admin)=>db.query('select public.directory_bulk_qr_style($1,$2,$3) as changed',[actor,style===null?null:JSON.stringify(style),JSON.stringify(rows)]);
+   expect((await db.query("select has_function_privilege('anon','public.directory_bulk_qr_style(uuid,jsonb,jsonb)','execute') as anon,has_function_privilege('authenticated','public.directory_bulk_qr_style(uuid,jsonb,jsonb)','execute') as authenticated")).rows[0]).toEqual({anon:false,authenticated:false});
+   await rejected(()=>apply(design,initial,other));
+   await rejected(()=>apply(design,initial.slice(0,1)));
+   await rejected(()=>apply(design,[initial[0],initial[0]]));
+   await rejected(()=>apply(design,initial.map(row=>({...row,updated_at:'2020-01-01T00:00:00Z'}))));
+   expect((await apply(design,initial)).rows[0]).toEqual({changed:2});
+   const rows=(await db.query('select qr_style,storage_path from public.directory_qrs order by id')).rows;
+   expect(rows).toEqual([{qr_style:design,storage_path:file},{qr_style:design,storage_path:path}]);
+   const afterApply=await snapshot();await rejected(()=>apply({...design,palette:'invalid'},afterApply));
+   expect((await db.query('select count(*)::int as count from public.directory_qrs where qr_style=$1',[JSON.stringify(design)])).rows[0]).toEqual({count:2});
+   const outdated=await snapshot();await db.query("update public.directory_qrs set label='Second changed bank' where id=$1",[second]);
+   await rejected(()=>apply(null,outdated));
+   const fresh=await snapshot();expect((await apply(null,fresh)).rows[0]).toEqual({changed:2});
+   expect((await db.query('select qr_style from public.directory_qrs')).rows).toEqual([{qr_style:null},{qr_style:null}]);
+  }finally{await db.exec('rollback');}
  });
  it('serves only linked images through download; signing/listing and unlinked files are denied',async()=>{
   expect((await asRole('anon','','select name from storage.objects')).rows).toHaveLength(2);

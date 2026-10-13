@@ -46,7 +46,7 @@ export async function manageDirectory(form: FormData, progress: (value: number) 
     xhr.onload = () => {
       let body; try { body = JSON.parse(xhr.responseText); } catch { reject(new Error('Unable to save right now. Please retry.')); return; }
       if (xhr.status >= 200 && xhr.status < 300) { progress(100); resolve(body); }
-      else reject(new Error(body.code === 'setup_required' || (body.code === 'invalid' && form.get('action') === 'save_qr_style') ? 'QR design setup is incomplete. Apply the latest database migration and deploy directory-manage.' : body.code === 'invalid_style' ? 'Choose a supported QR design.' : body.code === 'conflict' ? 'This payment option already exists or was changed. Refresh and try again.' : body.code === 'invalid_image' ? 'Choose a valid PNG, JPEG, or WebP image up to 5 MB.' : body.code === 'forbidden' ? 'Your access has changed. Refresh to continue.' : 'Unable to save right now. Please retry.'));
+      else reject(new Error(body.code === 'setup_required' || (body.code === 'invalid' && ['save_qr_style','bulk_qr_style'].includes(String(form.get('action')))) ? 'QR design setup is incomplete. Apply the latest database migration and deploy directory-manage.' : body.code === 'invalid_style' ? 'Choose a supported QR design.' : body.code === 'conflict' ? 'This payment option already exists or was changed. Refresh and try again.' : body.code === 'invalid_image' ? 'Choose a valid PNG, JPEG, or WebP image up to 5 MB.' : body.code === 'forbidden' ? 'Your access has changed. Refresh to continue.' : 'Unable to save right now. Please retry.'));
     };
     xhr.send(form);
   });

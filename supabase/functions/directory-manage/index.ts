@@ -32,7 +32,19 @@ Deno.serve(async req => {
     const form = await new Response(bytes, { headers: { 'Content-Type': req.headers.get('Content-Type') ?? '' } }).formData();
     const text = (key: string) => typeof form.get(key) === 'string' ? String(form.get(key)) : null;
     const action = text('action'), id = text('id'), person = text('person_id'), mode = text('avatar_mode'), expected = text('expected_updated_at');
-    if (!id || !uuid.test(id) || !['save_person','delete_person','save_qr','delete_qr','save_qr_style'].includes(action ?? '')) return json(req,{code:'invalid'},400);
+    if ((action !== 'bulk_qr_style' && (!id || !uuid.test(id))) || !['save_person','delete_person','save_qr','delete_qr','save_qr_style','bulk_qr_style'].includes(action ?? '')) return json(req,{code:'invalid'},400);
+    if (action === 'bulk_qr_style') {
+      let design: unknown, snapshot: unknown;
+      try { design=JSON.parse(text('qr_style')??'null'); snapshot=JSON.parse(text('snapshot')??'null'); } catch { return json(req,{code:'invalid'},400); }
+      if (design!==null&&!validQRStyle(design)) return json(req,{code:'invalid_style'},400);
+      if (!Array.isArray(snapshot)||snapshot.length>5000||snapshot.some(row=>!row||typeof row!=='object'||!uuid.test(row.id)||typeof row.updated_at!=='string'||!Number.isFinite(Date.parse(row.updated_at))))return json(req,{code:'invalid'},400);
+      const {data:changed,error}=await service.rpc('directory_bulk_qr_style',{actor,design,snapshot});
+      if(error){
+        const code=['42703','42883','42P01','PGRST202','PGRST204'].includes(error.code)?'setup_required':error.code==='42501'?'forbidden':error.code==='23505'?'conflict':error.code==='23514'?'invalid_style':'save_failed';
+        return json(req,{code},error.code==='42501'?403:409);
+      }
+      return json(req,{changed});
+    }
     if (action === 'save_qr_style') {
       let design: unknown;
       try { design=JSON.parse(text('qr_style') ?? 'null'); } catch { return json(req,{code:'invalid'},400); }

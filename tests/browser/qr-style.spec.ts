@@ -4,12 +4,14 @@ import jsQR from 'jsqr';
 import {readFileSync} from 'node:fs';
 
 test('admin saves a verified design for only one QR, visitors get it, and reset restores default', async ({page}) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
+  const openOptions=async()=>{const details=page.locator('.qr-options');await expect(details).toBeVisible();if(!await details.evaluate((element:HTMLDetailsElement)=>element.open))await page.getByText('More options',{exact:true}).click();};
   const person='20000000-0000-4000-8000-000000000001';
   const first='30000000-0000-4000-8000-000000000001',second='30000000-0000-4000-8000-000000000002';
   const payload='0002010102115204000053034585802MY5912TEST ONLY6002KL6304ABCD';
   const png=await QRCode.toBuffer(payload,{width:400,margin:4});
-  let version=0,readable=true;
+  let version=0,readable=true,brokenSecond=false;
+  const bulkWrites:unknown[]=[];
   const noQR=readFileSync('public/icon-192.png');
   const writes:unknown[]=[];
   let qrs=[{id:first,person_id:person,label:'First bank',label_key:'firstbank',storage_path:'first.png',updated_at:'2026-10-13T00:00:00Z',qr_style:null as unknown},
@@ -18,13 +20,18 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
     const req=route.request(),url=new URL(req.url());
     const json=(data:unknown,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
     if(req.method()==='OPTIONS')return route.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*'}});
-    if(url.pathname.includes('/storage/'))return route.fulfill({contentType:'image/png',body:readable?png:noQR});
+    if(url.pathname.includes('/storage/'))return route.fulfill({contentType:'image/png',body:readable&&!(brokenSecond&&url.pathname.endsWith('second.png'))?png:noQR});
     if(url.pathname==='/auth/v1/token')return json({access_token:'fixture-admin-token',refresh_token:'fixture-refresh',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'10000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:'admin@example.test',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-10-06T00:00:00Z'}});
     if(url.pathname.endsWith('is_directory_admin'))return json(req.headers().authorization?.includes('fixture-admin-token')??false);
     if(url.pathname==='/rest/v1/directory_people')return json([{id:person,display_name:'Style Friend',avatar_path:null,avatar_url:null,updated_at:'2026-10-13T00:00:00Z'}]);
     if(url.pathname==='/rest/v1/directory_qrs')return json(qrs);
     if(url.pathname==='/functions/v1/directory-manage'){
       const form=await new Response(req.postDataBuffer()!,{headers:{'content-type':req.headers()['content-type']}}).formData();
+      if(form.get('action')==='bulk_qr_style'){
+        const rows=JSON.parse(String(form.get('snapshot'))),design=JSON.parse(String(form.get('qr_style')));
+        if(rows.length!==qrs.length||qrs.some(q=>!rows.some((row:{id:string;updated_at:string})=>row.id===q.id&&row.updated_at===q.updated_at)))return json({code:'conflict'},409);
+        bulkWrites.push(design);qrs=qrs.map(q=>({...q,qr_style:design,updated_at:new Date(Date.UTC(2026,9,13,0,0,++version)).toISOString()}));return json({changed:qrs.length});
+      }
       expect(form.get('action')).toBe('save_qr_style');expect(form.get('file')).toBeNull();
       const current=qrs.find(q=>q.id===form.get('id'))!;
       if(form.get('expected_updated_at')!==current.updated_at)return json({code:'conflict'},409);
@@ -35,12 +42,12 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
     return json({});
   });
   await page.goto(`/qr/${first}`);
-  await page.getByText('More options',{exact:true}).click();
+  await openOptions();
   await expect(page.getByRole('button',{name:'Customize QR',exact:true})).toHaveCount(0);
   await page.goto('/admin/login');
   await page.getByLabel('Email',{exact:true}).fill('admin@example.test');await page.getByLabel('Password',{exact:true}).fill('fixture-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.getByRole('button',{name:/Style Friend/}).click();await page.getByRole('button',{name:/First bank Updated/}).click();
-  await page.getByText('More options',{exact:true}).click();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
+  await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
   const dialog=page.getByRole('dialog');
   await dialog.getByRole('radio',{name:'PayIndex',exact:true}).check();
   await dialog.getByRole('radio',{name:'Rounded',exact:true}).check();
@@ -68,26 +75,47 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
   expect(saved).not.toEqual(png);
   // An anonymous visitor sees the persisted design but cannot customize it.
   await page.evaluate(()=>localStorage.clear());await page.reload();await expect(page.getByText('Styled QR',{exact:true})).toBeVisible({timeout:20000});
-  await page.getByText('More options',{exact:true}).click();await expect(page.getByRole('button',{name:'Customize QR',exact:true})).toHaveCount(0);
+  await openOptions();await expect(page.getByRole('button',{name:'Customize QR',exact:true})).toHaveCount(0);
   await page.goto('/admin/login');await page.getByLabel('Email',{exact:true}).fill('admin@example.test');await page.getByLabel('Password',{exact:true}).fill('fixture-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.goto(`/qr/${second}`);await expect(page.getByText('Clean QR',{exact:true})).toBeVisible({timeout:20000});
-  await page.goto(`/qr/${first}`);await page.getByText('More options',{exact:true}).click();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
+  await page.goto(`/qr/${first}`);await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
   await dialog.getByRole('button',{name:'Reset to default Clean QR'}).click();await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});
   await dialog.getByRole('button',{name:'Save design',exact:true}).click();await expect(page.getByText('Clean QR',{exact:true})).toBeVisible({timeout:20000});expect(writes[1]).toBeNull();
   // Unreadable originals cannot enable a design save.
-  readable=false;await page.reload();await page.getByText('More options',{exact:true}).click();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
+  readable=false;await page.reload();await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
   await expect(dialog.getByText('The original QR could not be regenerated safely. Retry the preview or use a clearer original.')).toBeVisible({timeout:20000});
   await expect(dialog.getByRole('button',{name:'Save design',exact:true})).toBeDisabled();expect(writes).toHaveLength(2);
   await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
   readable=true;await page.reload();await expect(page.getByText('Clean QR',{exact:true})).toBeVisible({timeout:20000});
   let blockWorker=true;
   await page.route('**/*qr-format.worker*',route=>blockWorker?route.abort():route.continue());
-  await page.getByText('More options',{exact:true}).click();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
+  await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
   await expect(dialog.getByText('The QR processor could not start. Refresh the page or retry the preview.')).toBeVisible({timeout:20000});
   await expect(dialog.getByRole('button',{name:'Save design',exact:true})).toBeDisabled();
   blockWorker=false;await dialog.getByRole('button',{name:'Retry preview',exact:true}).click();
   await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});
 
+
+  await expect(dialog.getByRole('radio')).toHaveCount(19);
+  await dialog.getByRole('radio',{name:'Pink',exact:true}).check();await dialog.getByRole('radio',{name:'Dots',exact:true}).check();
+  await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});
+  await dialog.getByRole('button',{name:'Apply this design to all QRs',exact:true}).click();
+  await expect(dialog.getByText('All QRs passed the scan check.')).toBeVisible({timeout:30000});expect(bulkWrites).toHaveLength(0);
+  await dialog.getByRole('button',{name:'Back',exact:true}).click();await expect(dialog.getByRole('radio',{name:'Pink',exact:true})).toBeChecked();
+  await dialog.getByRole('button',{name:'Apply this design to all QRs',exact:true}).click();
+  await expect(dialog.getByText('All QRs passed the scan check.')).toBeVisible({timeout:30000});
+  await dialog.getByRole('button',{name:'Apply to all 2 QRs',exact:true}).click();await expect(dialog).toHaveCount(0);
+  expect(qrs.every(q=>JSON.stringify(q.qr_style)===JSON.stringify({palette:'pink',shape:'dots',logo:false}))).toBe(true);
+  await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
+  await dialog.getByRole('button',{name:'Reset all QRs to default',exact:true}).click();await dialog.getByRole('button',{name:'Cancel',exact:true}).click();expect(bulkWrites).toHaveLength(1);
+  await page.getByRole('button',{name:'Customize QR',exact:true}).click();await dialog.getByRole('button',{name:'Reset all QRs to default',exact:true}).click();
+  await dialog.getByRole('button',{name:'Reset all 2 QRs',exact:true}).click();await expect(dialog).toHaveCount(0);
+  expect(qrs.every(q=>q.qr_style===null)).toBe(true);expect(qrs.map(q=>q.storage_path)).toEqual(['first.png','second.png']);expect(bulkWrites).toEqual([{palette:'pink',shape:'dots',logo:false},null]);
+  await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
+  await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});brokenSecond=true;
+  await dialog.getByRole('button',{name:'Apply this design to all QRs',exact:true}).click();
+  await expect(dialog.getByText('Style Friend · Second bank',{exact:true})).toBeVisible({timeout:30000});
+  await expect(dialog.getByRole('button',{name:'Apply to all 2 QRs',exact:true})).toBeDisabled();expect(bulkWrites).toHaveLength(2);
 
 });
 
@@ -104,7 +132,7 @@ test('all preset combinations render to scannable SVG with unchanged data',async
     const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0);
     const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
     const results=[];const previews:string[]=[];
-    for(const palette of ['classic','payindex','midnight','cyber'])for(const shape of ['square','rounded','dots','classy'])for(const logo of [false,true]){
+    for(const palette of ['classic','payindex','midnight','cyber','pink','crimson','coral','amber','olive','forest','teal','ocean','indigo','violet','plum'])for(const shape of ['square','rounded','dots','classy'])for(const logo of [false,true]){
       const result=cleanQR({pixels:frame.data,width:frame.width,height:frame.height},{palette,shape,logo});
       if(!result){results.push({palette,shape,logo,valid:false});continue;}
       if(palette==='payindex'&&!logo)previews.push(`<div style="background:#151619;border:1px solid #333;border-radius:18px;padding:20px"><div style="background:#fff;border-radius:12px">${result.svg}</div><h2 style="text-align:center;font:600 20px system-ui;text-transform:capitalize;margin:18px 0 0">${shape}</h2></div>`);
@@ -119,6 +147,6 @@ test('all preset combinations render to scannable SVG with unchanged data',async
     document.querySelectorAll('main svg').forEach(svg=>{svg.setAttribute('width','100%');svg.setAttribute('height','auto');});
     return results;
   },source);
-  expect(results).toHaveLength(32);expect(results.filter(r=>!r.valid)).toEqual([]);
+  expect(results).toHaveLength(120);expect(results.filter(r=>!r.valid)).toEqual([]);
   await page.screenshot({path:'test-results/qr-shape-comparison.png',fullPage:true});
 });
