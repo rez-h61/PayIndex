@@ -127,6 +127,7 @@ test('all preset combinations render to scannable SVG with unchanged data',async
   await page.goto('/?demo=1');
   const results=await page.evaluate(async source=>{
     const modulePath='/src/qr-format.ts';const {cleanQR,verifyQR}=await import(modulePath);
+    const stylesPath='/src/qr-style.ts';const {QR_COLOURS}=await import(stylesPath);
     const image=new Image();image.src=source;await image.decode();
     const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
     const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0);
@@ -135,7 +136,11 @@ test('all preset combinations render to scannable SVG with unchanged data',async
     for(const palette of ['classic','payindex','midnight','cyber'])for(const colour of ['black','slate','navy','blue','pink','crimson','coral','amber','olive','forest','teal','ocean','indigo','violet','plum'])for(const shape of ['square','rounded','dots','classy'])for(const logo of [false,true]){
       const result=cleanQR({pixels:frame.data,width:frame.width,height:frame.height},{palette,shape,logo,colour});
       if(!result){results.push({palette,shape,logo,valid:false});continue;}
-      if(palette==='payindex'&&colour==='pink'&&!logo)previews.push(`<div style="background:#151619;border:1px solid #333;border-radius:18px;padding:20px"><div style="background:#fff;border-radius:12px">${result.svg}</div><h2 style="text-align:center;font:600 20px system-ui;text-transform:capitalize;margin:18px 0 0">${shape}</h2></div>`);
+      if(!logo){
+        const fills=[...result.svg.matchAll(/fill="([^"]+)"/g)].map(match=>match[1]);
+        if(fills.some(fill=>fill!=='#fff'&&fill!==QR_COLOURS[colour].hex))throw new Error('Unexpected colour: '+palette+'/'+colour+'/'+shape);
+      }
+      if(colour==='pink'&&!logo)previews.push(`<div style="background:#151619;border:1px solid #333;border-radius:18px;padding:20px"><div style="background:#fff;border-radius:12px">${result.svg}</div><h2 style="text-align:center;font:600 20px system-ui;text-transform:capitalize;margin:18px 0 0">${palette} · ${shape}</h2></div>`);
       const url=URL.createObjectURL(new Blob([result.svg],{type:'image/svg+xml'}));
       try{
         const img=new Image();img.src=url;await img.decode();canvas.width=result.width;canvas.height=result.height;ctx.drawImage(img,0,0);
@@ -143,7 +148,7 @@ test('all preset combinations render to scannable SVG with unchanged data',async
         results.push({palette,shape,logo,valid:verifyQR({pixels:pixels.data,width:pixels.width,height:pixels.height},result.proof)});
       }finally{URL.revokeObjectURL(url);}
     }
-    document.body.innerHTML=`<main style="max-width:1100px;margin:40px auto;padding:24px;color:#fff"><h1 style="font:600 30px system-ui;margin:0 0 28px">PayIndex · QR shape designs</h1><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px">${previews.join('')}</div></main>`;
+    document.body.innerHTML=`<main style="max-width:1400px;margin:40px auto;padding:24px;color:#fff"><h1 style="font:600 30px system-ui;margin:0 0 28px">PayIndex · QR designs and shapes</h1><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px">${previews.join('')}</div></main>`;
     document.querySelectorAll('main svg').forEach(svg=>{svg.setAttribute('width','100%');svg.setAttribute('height','auto');});
     return results;
   },source);

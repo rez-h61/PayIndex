@@ -97,7 +97,7 @@ export function cleanQR(frame: QRFrame, style: QRStyle = DEFAULT_QR_STYLE): Clea
     verified.binaryData.length !== code.binaryData.length ||
     !verified.binaryData.every((byte, i) => byte === code.binaryData[i])) return null;
   // SVG contains only fixed markup and generated integer coordinates, never payload text.
-  const plain = style.palette === 'classic' && (!style.colour || style.colour === 'black') && style.shape === 'square' && !style.logo;
+  const plain = style.palette === 'classic' && !style.colour && style.shape === 'square' && !style.logo;
   const svg = plain ? `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${side} ${side}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h${side}v${side}H0z"/><path fill="#000" d="${paths.join('')}"/></svg>` : styledSVG(generated, style, size);
   return { pixels: output, width: size, height: size, svg,
     proof: { data: code.data, binaryData: code.binaryData, chunks: code.chunks } };

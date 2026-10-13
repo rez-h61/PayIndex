@@ -26,7 +26,7 @@
 
 .qr-style-form > .muted { font-size: 12px; }
 .qr-style-preview { background: #fff; color: #333; border-radius: 12px; min-height: 220px; display: grid; place-items: center; padding: 12px; }
-.qr-style-preview img { display: block; width: 100%; max-width: 300px; height: auto; }
+.qr-style-preview img { display: block; width: 100%; max-width: 360px; height: auto; }
 .qr-style-preview p { padding: 20px; font-size: 12px; text-align: center; }
 .qr-style-form .qr-style-verification { font-size: 11px; color: #b5d2bc; text-align: center; min-height: 20px; }
 .qr-style-choices { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; }
@@ -39,7 +39,7 @@
 .qr-style-dialog .dialog-heading { position: sticky; top: -27px; background: #0e0f12; z-index: 2; padding: 12px 0; }
 .qr-style-dialog .form-actions { position: sticky; bottom: -27px; background: #0e0f12; z-index: 2; padding: 12px 0; }
 @media(max-width:640px) {
- .qr-style-preview img { max-width: 220px; }
+ .qr-style-preview img { max-width: 100%; }
  .qr-style-choices label { font-size: 10px; gap: 4px; }
  .qr-style-dialog .dialog-heading { top: -23px; }
  .qr-style-dialog .form-actions { bottom: -23px; }
@@ -52,3 +52,5 @@
 .qr-bulk-review > .muted { font-size: 12px; }
 .qr-bulk-review h3 { font-size: 16px; margin: 0; }
 .qr-bulk-review .form-actions { flex-wrap: wrap; }
+
+.qr-shape-sample{width:16px;height:16px;fill:currentColor;flex-shrink:0}

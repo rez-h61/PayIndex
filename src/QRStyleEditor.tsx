@@ -20,7 +20,7 @@ export function QRStyleEditor({ qr, blob, loadError, onClose, onBusy, onSaved, o
   const current=style??DEFAULT_QR_STYLE;
   const selected:QRStyle=QR_DESIGNS.includes(current.palette as typeof QR_DESIGNS[number])?current:{...current,palette:'classic',colour:current.palette};
   const selectedColour=selected.colour??({classic:'black',payindex:'slate',midnight:'navy',cyber:'blue'} as Record<string,string>)[selected.palette]??selected.palette;
-  const change=(patch:Partial<QRStyle>)=>{setError('');setStyle({...selected,...patch});};
+  const change=(patch:Partial<QRStyle>)=>{setError('');setStyle({...selected,colour:selectedColour,...patch});};
   async function save(event:FormEvent) {
     event.preventDefault(); if(busy||checking||!formatted)return;
     setBusy(true);onBusy(true);setError('');
@@ -38,12 +38,12 @@ export function QRStyleEditor({ qr, blob, loadError, onClose, onBusy, onSaved, o
     <p className="qr-style-verification" role="status">{formatted?'Scan check passed. Original data matches.':checking?'Checking colours, shapes and logo…':''}</p>
     <fieldset disabled={busy}><legend>Design</legend><div className="qr-style-choices">{QR_DESIGNS.map(key=><label className={selected.palette===key?'selected':''} key={key}>
       <input type="radio" name="qr-design" checked={selected.palette===key} onChange={()=>change({palette:key,colour:selectedColour})}/>{QR_PALETTES[key].name}
+    </label>)}</div><p className="footnote">Classic: connected · PayIndex: fine spacing · Midnight: soft spacing · Cyber: open spacing.</p></fieldset>
+    <fieldset disabled={busy}><legend>Colour <span className="muted">(15 options)</span></legend><div className="qr-style-choices qr-colour-choices">{Object.entries(QR_COLOURS).map(([key,colour])=><label className={selectedColour===key?'selected':''} key={key}>
+      <input type="radio" name="qr-colour" value={key} checked={selectedColour===key} onChange={()=>change({palette:QR_DESIGNS.includes(selected.palette as typeof QR_DESIGNS[number])?selected.palette:'classic',colour:key})}/><span className="qr-swatch" style={{background:colour.hex}}/>{colour.name}
     </label>)}</div></fieldset>
-    <fieldset disabled={busy}><legend>Colour <span className="muted">(15 options)</span></legend><div className="qr-style-choices qr-colour-choices">{Object.entries(QR_COLOURS).map(([key,colour])=><label className={(selected.colour??(({classic:'black',payindex:'slate',midnight:'navy',cyber:'blue'} as Record<string,string>)[selected.palette]??selected.palette))===key?'selected':''} key={key}>
-      <input type="radio" name="qr-colour" value={key} checked={(selected.colour??(({classic:'black',payindex:'slate',midnight:'navy',cyber:'blue'} as Record<string,string>)[selected.palette]??selected.palette))===key} onChange={()=>change({palette:QR_DESIGNS.includes(selected.palette as typeof QR_DESIGNS[number])?selected.palette:'classic',colour:key})}/><span className="qr-swatch" style={{background:colour.hex}}/>{colour.name}
-    </label>)}</div></fieldset>
-    <fieldset disabled={busy}><legend>Module shape</legend><div className="qr-style-choices">{QR_SHAPES.map(shape=><label className={selected.shape===shape?'selected':''} key={shape}>
-      <input type="radio" name="qr-shape" value={shape} checked={selected.shape===shape} onChange={()=>change({shape})}/>{shape[0].toUpperCase()+shape.slice(1)}
+    <fieldset disabled={busy}><legend>Module shape</legend><p className="footnote">Changes the small modules and all three corner markers.</p><div className="qr-style-choices">{QR_SHAPES.map(shape=><label className={selected.shape===shape?'selected':''} key={shape}>
+      <input type="radio" name="qr-shape" value={shape} checked={selected.shape===shape} onChange={()=>change({shape})}/><svg className={`qr-shape-sample qr-shape-${shape}`} viewBox="0 0 20 20" aria-hidden="true"><path d={{square:"M0 0H20V20H0Z",rounded:"M6 0H14Q20 0 20 6V14Q20 20 14 20H6Q0 20 0 14V6Q0 0 6 0Z",dots:"M10 0A10 10 0 1 1 10 20A10 10 0 1 1 10 0Z",classy:"M10 0H20V10Q20 20 10 20H0V10Q0 0 10 0Z"}[shape]}/></svg>{shape[0].toUpperCase()+shape.slice(1)}
     </label>)}</div></fieldset>
     <label className="checkbox"><input type="checkbox" checked={selected.logo} disabled={busy} onChange={event=>change({logo:event.target.checked})}/><span>Embed PayIndex logo</span></label>
     <button type="button" className="text-button" disabled={busy} onClick={()=>{setStyle(null);setError('');}}>Reset to default Clean QR</button>
