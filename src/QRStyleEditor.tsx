@@ -10,7 +10,13 @@ export function QRStyleEditor({ qr, blob, loadError, onClose, onBusy, onSaved }:
 }) {
   const [style,setStyle]=useState<QRStyle|null>(qr.qr_style??null);
   const [busy,setBusy]=useState(false), [error,setError]=useState('');
-  const {formatted,checking}=useFormattedQR(blob,style,false);
+  const {formatted,checking,failure,retry}=useFormattedQR(blob,style,false);
+  const failureMessage = failure === 'worker' ? 'The QR processor could not start. Refresh the page or retry the preview.'
+    : failure === 'timeout' ? 'QR processing timed out. Retry the preview.'
+    : failure === 'render' ? 'The browser could not render this QR. Retry the preview.'
+    : failure === 'verification' ? 'This design failed the scan check. Try another shape or turn off the logo.'
+    : failure === 'source' ? 'The original image could not be decoded. Retry or upload a clearer image.'
+    : 'The original QR could not be regenerated safely. Retry the preview or use a clearer original.';
   const selected=style??DEFAULT_QR_STYLE;
   const change=(patch:Partial<QRStyle>)=>{setError('');setStyle({...selected,...patch});};
   async function save(event:FormEvent) {
@@ -25,7 +31,8 @@ export function QRStyleEditor({ qr, blob, loadError, onClose, onBusy, onSaved }:
   }
   return <form className="form qr-style-form" onSubmit={save}>
     <p className="muted">{qr.label} · This design applies to this QR only.</p>
-    <div className="qr-style-preview">{formatted?<img src={formatted.url} alt="Custom QR preview"/>:<p role="status">{loadError?'The original QR could not load.':checking||!blob?'Verifying QR preview…':'This design could not be verified. Try another style.'}</p>}</div>
+    <div className="qr-style-preview">{formatted?<img src={formatted.url} alt="Custom QR preview"/>:<p role="status">{loadError?'The original QR could not load.':checking||!blob?'Verifying QR preview…':failureMessage}</p>}</div>
+    {!formatted&&!checking&&!!blob&&<button type="button" onClick={retry} disabled={busy}>Retry preview</button>}
     <p className="qr-style-verification" role="status">{formatted?'Scan check passed. Original data matches.':checking?'Checking colours, shapes and logo…':''}</p>
     <fieldset disabled={busy}><legend>Colour</legend><div className="qr-style-choices">{Object.entries(QR_PALETTES).map(([key,palette])=><label className={selected.palette===key?'selected':''} key={key}>
       <input type="radio" name="qr-palette" value={key} checked={selected.palette===key} onChange={()=>change({palette:key as QRStyle['palette']})}/><span className="qr-swatch" style={{background:palette.eye}}/>{palette.name}

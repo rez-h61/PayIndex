@@ -133,3 +133,7 @@ A generated preview must decode to the same raw bytes, text and segment structur
 Existing installations must apply `supabase/migrations/20261013060157_per_qr_design.sql`, deploy the updated `directory-manage` function (including `_shared/qr-style.ts`), then deploy the frontend. In Supabase SQL Editor, run the full migration and confirm success before updating the frontend. Do not rerun setup-new.sql on existing installations. The migration adds qr_style and a service-only admin-checked RPC with stale-update protection, while public read access inherits the existing directory policy. No shortlink feature is included.
 
 The vector master for the PayIndex logo now lives at `src/assets/payindex-icon.svg`. Header/favicon/home-screen assets and the embedded QR badge derive from that source; regenerate standalone icons with `node scripts/icons.mjs` after changing it.
+
+## QR worker loading after deployment updates
+
+The QR worker is bundled inline with the application, so a cached app cannot request a removed hashed worker file from another deployment. CSP permits same-origin and blob workers (script-src remains self only). Online service-worker navigation fetches the current public app shell; offline navigation uses the precached shell and its matching assets. Navigation URLs, API responses and payment images are not added to the cache. This increases the main bundle in exchange for avoiding a separate worker asset/version dependency. After deploying this update, hard-refresh an already-open tab to leave the old cached app version.

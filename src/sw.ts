@@ -16,9 +16,17 @@ self.addEventListener('activate', event => { event.waitUntil((async () => {
 self.addEventListener('fetch', event => {
   const request = event.request, url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || request.headers.has('authorization')) return;
-  // Navigation always returns the public app shell; its query string is never cached.
+  // Online navigation gets the current deployment shell; offline uses the complete
+  // precached version. Never cache navigation URLs or query strings.
   if (request.mode === 'navigate') {
-    event.respondWith(caches.open(CACHE).then(async cache => (await cache.match('/index.html')) ?? fetch(request)));
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(request, { cache: 'no-store' });
+        if (fresh.ok) return fresh;
+      } catch { /* Network unavailable: use the offline shell below. */ }
+      return (await (await caches.open(CACHE)).match('/index.html')) ??
+        new Response('PayIndex could not load. Reconnect and reload.', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+    })());
   } else if (!url.search && paths.includes(url.pathname)) {
     event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(url.pathname)) ?? fetch(request)));
   }

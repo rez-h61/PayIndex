@@ -11,3 +11,17 @@ test('production shell and dark icons work offline without caching directory res
  expect(await page.evaluate(()=>Object.keys(localStorage))).toEqual([]);expect(await page.evaluate(async()=>(await indexedDB.databases()).length)).toBe(0);
  await context.setOffline(true);await page.reload();await expect(page.getByRole('heading',{name:'A connection, please.'})).toBeVisible();await context.setOffline(false);
 });
+
+test('online navigation does not serve a stale cached app shell',async({page})=>{
+ await page.route('https://*.supabase.co/**',route=>route.fulfill({status:503,contentType:'application/json',body:'{"message":"Offline fixture"}'}));
+ await page.goto('http://127.0.0.1:4174/');
+ await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
+ await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBe(true);
+ await page.evaluate(async()=>{
+  const name=(await caches.keys()).find(name=>name.startsWith('payindex-static-'))!;
+  await(await caches.open(name)).put('/index.html',new Response('<html><body>STALE-SHELL-PROBE</body></html>',{headers:{'Content-Type':'text/html'}}));
+ });
+ await page.reload();
+ await expect(page.getByRole('button',{name:'PayIndex home'})).toBeVisible();
+ await expect(page.getByText('STALE-SHELL-PROBE')).toHaveCount(0);
+});

@@ -76,8 +76,18 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
   await dialog.getByRole('button',{name:'Save design',exact:true}).click();await expect(page.getByText('Clean QR',{exact:true})).toBeVisible({timeout:20000});expect(writes[1]).toBeNull();
   // Unreadable originals cannot enable a design save.
   readable=false;await page.reload();await page.getByText('More options',{exact:true}).click();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
-  await expect(dialog.getByText('This design could not be verified. Try another style.')).toBeVisible({timeout:20000});
+  await expect(dialog.getByText('The original QR could not be regenerated safely. Retry the preview or use a clearer original.')).toBeVisible({timeout:20000});
   await expect(dialog.getByRole('button',{name:'Save design',exact:true})).toBeDisabled();expect(writes).toHaveLength(2);
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  readable=true;await page.reload();await expect(page.getByText('Clean QR',{exact:true})).toBeVisible({timeout:20000});
+  let blockWorker=true;
+  await page.route('**/*qr-format.worker*',route=>blockWorker?route.abort():route.continue());
+  await page.getByText('More options',{exact:true}).click();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
+  await expect(dialog.getByText('The QR processor could not start. Refresh the page or retry the preview.')).toBeVisible({timeout:20000});
+  await expect(dialog.getByRole('button',{name:'Save design',exact:true})).toBeDisabled();
+  blockWorker=false;await dialog.getByRole('button',{name:'Retry preview',exact:true}).click();
+  await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});
+
 
 });
 
