@@ -1,8 +1,19 @@
 import jsQR from 'jsqr';
 import QRCode, { type QRCodeSegment } from 'qrcode';
+import { DEFAULT_QR_STYLE, validQRStyle, type QRStyle } from './qr-style';
+import { styledSVG } from './qr-styled-svg';
 
 export type QRFrame = { pixels: Uint8ClampedArray; width: number; height: number };
-export type CleanQRFrame = QRFrame & { svg: string };
+export type QRProof = Pick<NonNullable<ReturnType<typeof jsQR>>, 'data' | 'binaryData' | 'chunks'>;
+export type CleanQRFrame = QRFrame & { svg: string; proof: QRProof };
+
+export function verifyQR(frame: QRFrame, proof: QRProof) {
+  const decoded = jsQR(frame.pixels, frame.width, frame.height);
+  return !!decoded && decoded.data === proof.data &&
+    JSON.stringify(decoded.chunks) === JSON.stringify(proof.chunks) &&
+    decoded.binaryData.length === proof.binaryData.length &&
+    decoded.binaryData.every((byte, i) => byte === proof.binaryData[i]);
+}
 
 function findSingleQR({ pixels, width, height }: QRFrame) {
   const code = jsQR(pixels, width, height);
@@ -46,7 +57,8 @@ export function cropQR(frame: QRFrame): QRFrame | null {
   return { pixels: output, width: size, height: size };
 }
 
-export function cleanQR(frame: QRFrame): CleanQRFrame | null {
+export function cleanQR(frame: QRFrame, style: QRStyle = DEFAULT_QR_STYLE): CleanQRFrame | null {
+  if (!validQRStyle(style)) return null;
   const detected = findSingleQR(frame);
   if (!detected) return null;
   const { code } = detected;
@@ -66,7 +78,7 @@ export function cleanQR(frame: QRFrame): CleanQRFrame | null {
   }
   if (!segments.length) return null;
   let generated: ReturnType<typeof QRCode.create>;
-  try { generated = QRCode.create(segments, { errorCorrectionLevel: 'M' }); }
+  try { generated = QRCode.create(segments, { errorCorrectionLevel: style.logo ? 'H' : 'M' }); }
   catch { return null; }
   const margin = 8, scale = 8, side = generated.modules.size + margin * 2, size = side * scale;
   const output = new Uint8ClampedArray(size * size * 4).fill(255);
@@ -85,6 +97,8 @@ export function cleanQR(frame: QRFrame): CleanQRFrame | null {
     verified.binaryData.length !== code.binaryData.length ||
     !verified.binaryData.every((byte, i) => byte === code.binaryData[i])) return null;
   // SVG contains only fixed markup and generated integer coordinates, never payload text.
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${side} ${side}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h${side}v${side}H0z"/><path fill="#000" d="${paths.join('')}"/></svg>`;
-  return { pixels: output, width: size, height: size, svg };
+  const plain = style.palette === 'classic' && style.shape === 'square' && !style.logo;
+  const svg = plain ? `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${side} ${side}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h${side}v${side}H0z"/><path fill="#000" d="${paths.join('')}"/></svg>` : styledSVG(generated, style, size);
+  return { pixels: output, width: size, height: size, svg,
+    proof: { data: code.data, binaryData: code.binaryData, chunks: code.chunks } };
 }

@@ -1,3 +1,4 @@
+import { QRStyleEditor } from './QRStyleEditor';
 import { useFormattedQR } from './useFormattedQR';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Copy, ImagePlus, Link as LinkIcon, LockKeyhole, LogOut, Pencil, Plus, QrCode, Search, ShieldCheck, Trash2, Upload, Users, WifiOff, X } from 'lucide-react';
@@ -38,10 +39,10 @@ function Avatar({ person, large = false }: { person: Person; large?: boolean }) 
 function ErrorBox({ message, retry }: { message: string; retry?: () => void }) { return <div role="alert" className="error"><p>{message}</p>{retry && <button className="text-button" onClick={retry}>Try again <ArrowRight size={15}/></button>}</div>; }
 function Empty({ title, children }: { title: string; children?: ReactNode }) { return <div className="empty"><span className="empty-icon"><Users size={24}/></span><h2>{title}</h2>{children && <p>{children}</p>}</div>; }
 function Back({ onClick, children = 'Directory' }: { onClick: () => void; children?: ReactNode }) { return <button className="back" onClick={onClick}><ArrowLeft size={16}/>{children}</button>; }
-function Modal({ title, onClose, locked, children }: { title: string; onClose: () => void; locked?: boolean; children: ReactNode }) {
+function Modal({ title, onClose, locked, children, className = '' }: { title: string; onClose: () => void; locked?: boolean; children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const previous = document.activeElement as HTMLElement; ref.current?.showModal(); return () => previous?.focus(); }, []);
-  return <dialog ref={ref} aria-labelledby="modal-title" onCancel={e => { e.preventDefault(); if (!locked) onClose(); }}><div className="dialog-heading"><h2 id="modal-title">{title}</h2><button className="icon-button" aria-label="Close" disabled={locked} onClick={onClose}><X size={20}/></button></div>{children}</dialog>;
+  return <dialog ref={ref} className={className} aria-labelledby="modal-title" onCancel={e => { e.preventDefault(); if (!locked) onClose(); }}><div className="dialog-heading"><h2 id="modal-title">{title}</h2><button className="icon-button" aria-label="Close" disabled={locked} onClick={onClose}><X size={20}/></button></div>{children}</dialog>;
 }
 
 export default function App() {
@@ -51,11 +52,12 @@ export default function App() {
   const [admin, setAdmin] = useState(false), [authChecked, setAuthChecked] = useState(false);
   const [loading, setLoading] = useState(!demo && configured), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [online, setOnline] = useState(navigator.onLine), [search, setSearch] = useState('');
+  const [styleEditor,setStyleEditor]=useState<QR|null>(null);
   const [help, setHelp] = useState(false), [editor, setEditor] = useState<QR | 'new' | null>(null), [busy, setBusy] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void> }) | null>(null);
   const generation = useRef(0), authGeneration = useRef(0), adminRef = useRef(admin); adminRef.current = admin;
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
-  const clear = useCallback(() => { generation.current++; clearURLs(); setPeople([]); setQRs([]); setEditor(null); setSearch(''); }, []);
+  const clear = useCallback(() => { generation.current++; clearURLs(); setPeople([]); setQRs([]); setEditor(null); setStyleEditor(null); setSearch(''); }, []);
   const refresh = useCallback(async (full = false) => {
     if (demo || !configured || !navigator.onLine) return;
     const run = ++generation.current; if (full) setLoading(true);
@@ -94,7 +96,7 @@ export default function App() {
     return () => { window.removeEventListener('offline', offline); window.removeEventListener('online', check); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check); window.removeEventListener('beforeinstallprompt', install); clearInterval(interval); };
   }, [checkAdmin, refresh, clear, demo]);
   const previousPath = useRef(path);
-  useEffect(() => { setNotice(''); setEditor(null); if (previousPath.current !== path) document.querySelector<HTMLElement>('h1')?.focus(); previousPath.current = path; }, [path]);
+  useEffect(() => { setNotice(''); setEditor(null); setStyleEditor(null); if (previousPath.current !== path) document.querySelector<HTMLElement>('h1')?.focus(); previousPath.current = path; }, [path]);
   const personId = path.match(/^\/(?:people|admin\/people)\/([^/]+)$/)?.[1];
   const selectedQR = path.startsWith('/qr/') ? qrs.find(q => q.id === path.slice(4)) : undefined;
   const person = people.find(p => p.id === (selectedQR?.person_id ?? personId));
@@ -113,7 +115,7 @@ export default function App() {
     <a href="#main" className="skip">Skip to content</a>
     <header className="topbar"><button className="wordmark" onClick={() => navigate('/')} aria-label={`${APP_NAME} home`}><img className="brand-mark" src="/brand-mark.svg" alt="" width={28} height={28}/>{APP_NAME}</button><div className="header-actions"><button className="nav-link" onClick={() => navigate(admin ? '/admin' : '/admin/login')}>{admin ? 'Manage directory' : <><LockKeyhole size={14}/>Admin</>}</button><button className="icon-button" onClick={() => setHelp(true)} aria-label="Install and help"><CircleHelp size={18}/></button></div></header>
     {demo && <div className="demo-banner"><span>DESIGN PREVIEW</span> Fictional people · no real payment QRs <a href="/">Exit preview</a></div>}
-    {needRefresh && <div className="update-banner">An update is ready.<button disabled={busy || !!editor || isEditingPerson} onClick={() => void updateServiceWorker(true)}>Update now</button></div>}
+    {needRefresh && <div className="update-banner">An update is ready.<button disabled={busy || !!editor || !!styleEditor || isEditingPerson} onClick={() => void updateServiceWorker(true)}>Update now</button></div>}
     <main id="main" className={isAdminPage ? 'main admin-main' : 'main'}>
       {!online ? <section className="state"><WifiOff size={30}/><h1 tabIndex={-1}>A connection, please.</h1><p>Connect to load the latest people and QRs. Directory content isn’t kept offline.</p><button onClick={() => { setOnline(navigator.onLine); void refresh(true); }}>Try again</button></section>
       : isAdminPage && (!admin || demo) ? <AdminLogin checked={authChecked} demo={demo} onBack={() => navigate('/')} onSuccess={async () => { await checkAdmin(); await refresh(true); navigate('/admin'); }}/>
@@ -131,11 +133,12 @@ export default function App() {
           {path === '/admin' && <div className="admin-footer"><span>Only you can make changes.</span><button className="text-button" onClick={() => void signOut()}><LogOut size={15}/>Sign out</button></div>}
         </> : isEditingPerson ? <><Back onClick={() => navigate(person ? `/people/${person.id}` : '/admin')}/>{personId === 'new' || person ? <PersonEditor key={personId} person={person} onBusy={setBusy} onSaved={async (id, pending) => { await refresh(); navigate(`/people/${id}`); setNotice(pending ? 'Saved. Old file cleanup is queued.' : 'Person saved.'); }}/> : <Empty title="This person is no longer here."/>}</>
         : path.startsWith('/people/') ? <><Back onClick={() => navigate(admin ? '/admin' : '/')}/>{person ? <><div className="person-heading"><Avatar person={person} large/><p className="eyebrow">PAYMENT OPTIONS</p><h1 tabIndex={-1}>{person.display_name}</h1><p className="muted">Pick a place to send.</p></div>{admin && <div className="person-tools"><button onClick={() => navigate(`/admin/people/${person.id}`)}><Pencil size={15}/>Edit person</button><button className="primary" onClick={() => setEditor('new')}><Plus size={16}/>Add QR</button></div>}<div className="provider-list">{qrs.filter(q => q.person_id === person.id).map(q => <div className="provider-wrap" key={q.id}><button className="provider-row" onClick={() => navigate(`/qr/${q.id}`)}><span className="provider-symbol"><QrCode size={20}/></span><span><strong>{q.label}</strong><small>Updated {formatDate(q.updated_at)}</small></span><ChevronRight size={18}/></button>{admin && <div className="row-actions"><button onClick={() => setEditor(q)} disabled={busy}>Edit</button><button disabled={busy} onClick={() => void remove('qr',q.id,q.label,q.updated_at)}>Delete</button></div>}</div>)}</div>{!qrs.some(q => q.person_id === person.id) && <Empty title="No QRs just yet.">{admin ? 'Add a receiving QR for this person.' : 'Check back when the admin has added one.'}</Empty>}<p className="footnote">Provider labels don’t guarantee compatibility with every payment app.</p>{admin && <button className="text-button danger" disabled={busy} onClick={() => void remove('person',person.id,person.display_name,person.updated_at)}><Trash2 size={15}/>Delete person</button>}</> : <Empty title="This person is no longer here.">Return to the directory to find someone else.</Empty>}</>
-        : path.startsWith('/qr/') ? <><Back onClick={() => navigate(person ? `/people/${person.id}` : '/')}>{person?.display_name ?? 'Directory'}</Back>{selectedQR && person ? <Viewer key={selectedQR.storage_path || selectedQR.id} qr={selectedQR} person={person} demo={demo}/> : <Empty title="This QR is no longer here.">It may have been replaced or removed.</Empty>}</>
+        : path.startsWith('/qr/') ? <><Back onClick={() => navigate(person ? `/people/${person.id}` : '/')}>{person?.display_name ?? 'Directory'}</Back>{selectedQR && person ? <Viewer key={selectedQR.storage_path || selectedQR.id} qr={selectedQR} person={person} demo={demo} admin={admin} onCustomize={()=>setStyleEditor(selectedQR)}/> : <Empty title="This QR is no longer here.">It may have been replaced or removed.</Empty>}</>
         : <><Back onClick={() => navigate('/')}/><Empty title="Page not found.">Head back to your people.</Empty></>}
       </div>}
     </main><footer className="footer"><span>Made for the people you know.</span><span className="footer-mark">PAYINDEX <i/> RECEIVING ONLY</span></footer>
     {editor && person && admin && <QREditor person={person} existing={editor === 'new' ? null : editor} onClose={() => setEditor(null)} onBusy={setBusy} onSaved={async pending => { setEditor(null); await refresh(); setNotice(pending ? 'QR saved. Old file cleanup is queued.' : 'QR saved.'); }}/>} 
+    {styleEditor&&admin&&<QRStyleDialog qr={styleEditor} locked={busy} onClose={()=>setStyleEditor(null)} onBusy={setBusy} onSaved={async()=>{setStyleEditor(null);await refresh();setNotice('QR design saved.');}}/>}
     {help && <Modal title="A little closer." onClose={() => setHelp(false)}><p className="muted">Keep PayIndex on your home screen.</p>{installPrompt && <button className="primary" onClick={async () => { await installPrompt.prompt(); setInstallPrompt(null); }}>Install PayIndex</button>}<ul className="help-list"><li><strong>iPhone / iPad</strong><span>Safari → Share → Add to Home Screen.</span></li><li><strong>Android / desktop</strong><span>Use Install app in your browser’s menu.</span></li></ul><p className="footnote">Anyone with the link can view this directory. A connection is needed to load QRs. Only the admin can edit.</p><button className="text-button" onClick={async () => { try { await navigator.clipboard.writeText(location.origin); setNotice('Directory link copied.'); setHelp(false); } catch { setNotice('Copy the website address from your browser.'); setHelp(false); } }}><Copy size={16}/>Copy directory link</button></Modal>}
   </div>;
 }
@@ -154,10 +157,10 @@ function AdminLogin({ checked, demo, onBack, onSuccess }: { checked: boolean; de
   }
   return <><Back onClick={onBack}/><section className="login-panel"><span className="login-icon"><LockKeyhole size={23}/></span><p className="eyebrow">JUST FOR THE ADMIN</p><h1 tabIndex={-1}>Welcome back.</h1><p className="muted">A quiet place to keep things up to date.</p><form className="form" onSubmit={submit}><label>Email<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} disabled={busy}/></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} disabled={busy}/></label>{error && <ErrorBox message={error}/>}<button className="primary full" disabled={busy || !configured || demo || !checked}>{busy ? 'Signing in…' : 'Sign in'}<ArrowRight size={16}/></button></form><p className="footnote">{demo ? 'Login is disabled in this design preview.' : !configured ? 'Connect Supabase to enable admin sign-in.' : 'Friends can browse without an account.'}</p></section></>;
 }
-function Viewer({qr, person, demo}: {qr:QR;person:Person;demo:boolean}) {
+function Viewer({qr, person, demo, admin, onCustomize}: {qr:QR;person:Person;demo:boolean;admin:boolean;onCustomize:()=>void}) {
   const [retry,setRetry] = useState(0), {value:image,failed} = useStoredImage(demo ? null : qr.storage_path,retry);
   const [error,setError] = useState(false), [hint,setHint] = useState(''), [saving,setSaving] = useState(false);
-  const {formatted,checking}=useFormattedQR(image?.blob??null);
+  const {formatted,checking}=useFormattedQR(image?.blob??null,qr.qr_style??null);
   const [showOriginal,setShowOriginal]=useState(false);
   async function save(useFormatted = false) {
     if (!image) return; setSaving(true); setHint('');
@@ -168,11 +171,12 @@ function Viewer({qr, person, demo}: {qr:QR;person:Person;demo:boolean}) {
   return <section className="viewer">
     <p className="eyebrow">RECEIVING QR</p><h1 tabIndex={-1}>{person.display_name}</h1><p className="viewer-label">{qr.label}</p>
     <div className="qr-stage">{demo ? <div className="demo-placeholder"><QrCode size={48}/><strong>QR preview</strong><span>No payment QR in demo mode</span></div> : failed || error ? <ErrorBox message="This QR couldn’t load. It may have been replaced." retry={() => {setError(false);setRetry(v=>v+1);}}/> : image ? <img src={!showOriginal&&formatted?formatted.url:image.url} alt={`${person.display_name}’s ${qr.label} receiving QR`} onError={()=>setError(true)}/> : <p role="status">Loading original image…</p>}</div>
-    {image&&<div className="qr-format-status">{checking?<p className="footnote" role="status">Preparing Clean QR…</p>:formatted?<><span className="clean-qr-badge"><Check size={13}/>{showOriginal?'Original':'Clean QR'}</span>{showOriginal&&<button type="button" className="text-button" onClick={()=>setShowOriginal(false)}>Back to clean QR</button>}</>:null}</div>}
+    {image&&<div className="qr-format-status">{checking?<p className="footnote" role="status">Preparing Clean QR…</p>:formatted?<><span className="clean-qr-badge"><Check size={13}/>{showOriginal?'Original':qr.qr_style&&!formatted.fallback?'Styled QR':'Clean QR'}</span>{showOriginal&&<button type="button" className="text-button" onClick={()=>setShowOriginal(false)}>Back to clean QR</button>}</>:null}</div>}
     <p className="updated">UPDATED {formatDate(qr.updated_at).toUpperCase()}</p>
     <button className="primary full" onClick={() => void save(!!formatted)} disabled={!image || saving || error || checking}><ArrowDownToLine size={18}/>{saving ? 'Saving…' : 'Save QR'}</button>
     {hint && <p className="footnote" role="status">{hint}</p>}
     {image&&<details className="qr-options"><summary>More options</summary><div>
+      {admin&&<button type="button" onClick={onCustomize}>Customize QR</button>}
       {formatted&&!showOriginal&&<button type="button" onClick={()=>setShowOriginal(true)}>View original</button>}
       <button type="button" disabled={saving} onClick={()=>void save(false)}><ArrowDownToLine size={15}/>Save original</button>
       {formatted&&<a href={formatted.url} download={`${person.display_name.replace(/[^\p{L}\p{N}_-]/gu,'-')}-${qr.label_key}-clean.svg`}>Download SVG</a>}
@@ -180,6 +184,11 @@ function Viewer({qr, person, demo}: {qr:QR;person:Person;demo:boolean}) {
     </div></details>}
     <DuitNowAccount account={qr.duitnow_account}/><p className="recipient-note"><ShieldCheck size={18}/><span>Check the recipient name in your banking app before confirming.</span></p><p className="footnote">Added by the admin. QR ownership isn’t verified.</p>
   </section>;
+}
+
+function QRStyleDialog({qr,locked,onClose,onBusy,onSaved}: {qr:QR;locked:boolean;onClose:()=>void;onBusy:(busy:boolean)=>void;onSaved:()=>Promise<void>}) {
+  const {value,failed}=useStoredImage(qr.storage_path);
+  return <Modal className="qr-style-dialog" title="Customize QR" onClose={onClose} locked={locked}><QRStyleEditor qr={qr} blob={value?.blob??null} loadError={failed} onClose={onClose} onBusy={onBusy} onSaved={onSaved}/></Modal>;
 }
 
 function DuitNowAccount({account}: {account?: string | null}) {

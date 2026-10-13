@@ -123,3 +123,13 @@ Original uploads and storage paths stay unchanged. The primary Save QR button do
 Unreadable images, multiple detected QRs, failed verification, oversized payloads, and unsupported encodings (including ECI and Kanji) retain the original image. Detection uses a maximum 1600-pixel working image and a 20-second worker deadline. Payloads are not logged, followed as URLs, or sent to another service; generated images stay in memory. Original expiry or transaction restrictions are not changed. These checks verify data preservation, not acceptance by every banking application; scan-test Clean QR with the intended bank apps before relying on it.
 
 Uses [jsQR](https://github.com/cozmo/jsQR) for decoding and [node-qrcode](https://github.com/soldair/node-qrcode) for generation.
+
+## Per-QR design customization (admin)
+
+Open a receiving QR, then More options -> Customize QR. Only the directory admin sees this action. Choose Classic, PayIndex, Midnight or Cyber; Square, Rounded, Dots or Classy modules; and optionally embed the PayIndex app icon. Save design stores settings on that QR only. Reset to default Clean QR removes that row's custom style. Existing uploads are kept unchanged, and no image re-upload is needed.
+
+A generated preview must decode to the same raw bytes, text and segment structure after the SVG's colours, curves and embedded logo have been rasterized. That verified raster is also the downloadable PNG. Finder/timing/alignment modules remain square, the white quiet zone stays intact, and logo variants use high error correction with a small badge. A preview that fails verification cannot be saved through the editor. Viewers recheck the saved style; if it cannot be verified on their device, they fall back to the standard Clean QR, then the original if necessary. Test with the intended banking app; library decode checks do not prove acceptance by every banking app.
+
+Existing installations must apply `supabase/migrations/20261013060157_per_qr_design.sql`, deploy the updated `directory-manage` function (including `_shared/qr-style.ts`), then deploy the frontend. In Supabase SQL Editor, run the full migration and confirm success before updating the frontend. Do not rerun setup-new.sql on existing installations. The migration adds qr_style and a service-only admin-checked RPC with stale-update protection, while public read access inherits the existing directory policy. No shortlink feature is included.
+
+The vector master for the PayIndex logo now lives at `src/assets/payindex-icon.svg`. Header/favicon/home-screen assets and the embedded QR badge derive from that source; regenerate standalone icons with `node scripts/icons.mjs` after changing it.

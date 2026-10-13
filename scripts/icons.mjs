@@ -1,10 +1,12 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 
 // Draft D: one vector master for header, favicon and installed app icons.
-const mark = '<rect x="14" y="25" width="14" height="18" rx="5" fill="#ff5964"/><path fill="#fff" fill-rule="evenodd" d="M22 14h13c9 0 15 5 15 13s-6 13-15 13h-3v10H22V14Zm10 9v9h3c4 0 6-1.5 6-4.5S39 23 35 23h-3Z"/>';
-const svg = (background = true, maskable = false) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${background ? '0 0 64 64' : '12 12 40 40'}">${background ? `<rect width="64" height="64" rx="${maskable ? 0 : 14}" fill="#040506"/>` : ''}${mark}</svg>`;
+const master = readFileSync(new URL('../src/assets/payindex-icon.svg', import.meta.url), 'utf8');
+const svg = (background = true, maskable = false) => master
+  .replace('viewBox="0 0 64 64"', `viewBox="${background ? '0 0 64 64' : '12 12 40 40'}"`)
+  .replace('<rect width="64" height="64" rx="14" fill="#040506"/>', background ? `<rect width="64" height="64" rx="${maskable ? 0 : 14}" fill="#040506"/>` : '');
 const root = new URL('../public/', import.meta.url);
 writeFileSync(new URL('favicon.svg', root), svg());
 writeFileSync(new URL('brand-mark.svg', root), svg(false));

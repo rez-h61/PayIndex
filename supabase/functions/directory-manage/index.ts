@@ -1,3 +1,4 @@
+import { validQRStyle } from '../_shared/qr-style.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { inspectImage } from '../_shared/images.ts';
 import { cors, json } from '../_shared/http.ts';
@@ -31,7 +32,19 @@ Deno.serve(async req => {
     const form = await new Response(bytes, { headers: { 'Content-Type': req.headers.get('Content-Type') ?? '' } }).formData();
     const text = (key: string) => typeof form.get(key) === 'string' ? String(form.get(key)) : null;
     const action = text('action'), id = text('id'), person = text('person_id'), mode = text('avatar_mode'), expected = text('expected_updated_at');
-    if (!id || !uuid.test(id) || !['save_person','delete_person','save_qr','delete_qr'].includes(action ?? '')) return json(req,{code:'invalid'},400);
+    if (!id || !uuid.test(id) || !['save_person','delete_person','save_qr','delete_qr','save_qr_style'].includes(action ?? '')) return json(req,{code:'invalid'},400);
+    if (action === 'save_qr_style') {
+      let design: unknown;
+      try { design=JSON.parse(text('qr_style') ?? 'null'); } catch { return json(req,{code:'invalid'},400); }
+      if (design !== null && !validQRStyle(design)) return json(req,{code:'invalid_style'},400);
+      if (!expected) return json(req,{code:'invalid'},400);
+      const { error }=await service.rpc('directory_save_qr_style',{actor,entity_id:id,design,expected_updated_at:expected});
+      if (error) {
+        const code=['42703','42883','42P01','PGRST202','PGRST204'].includes(error.code)?'setup_required':error.code==='42501'?'forbidden':error.code==='23505'?'conflict':error.code==='23514'?'invalid_style':'save_failed';
+        return json(req,{code},error.code==='42501'?403:409);
+      }
+      return json(req,{id});
+    }
     if (action === 'save_qr' && (!person || !uuid.test(person) || form.get('acknowledged') !== 'true' || !/^[A-Za-z0-9][A-Za-z0-9 .&()'_-]{0,39}$/.test(text('label')?.trim() ?? ''))) return json(req,{code:'invalid'},400);
     if (action === 'save_person') {
       const name = text('display_name')?.trim() ?? '';

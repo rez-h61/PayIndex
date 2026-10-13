@@ -21,6 +21,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('supabase/migrations/202610060002_single_admin_directory.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/202610120001_optional_duitnow_account.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/202610120002_edit_qr_without_upload.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261013060157_per_qr_design.sql','utf8'));
  await db.query('insert into auth.users values($1,$2,$3),($4,$5,$6)',[admin,'admin@example.test','{}',other,'other@example.test','{"role":"admin"}']);
  await db.query('insert into private.directory_admin(user_id) values($1)',[admin]);
 },30_000);
@@ -70,6 +71,32 @@ describe('single-admin directory migration and access boundaries',()=>{
   await expect(save('1'.repeat(35))).rejects.toThrow();
   await save('');
   expect((await db.query('select duitnow_account from public.directory_qrs')).rows).toEqual([{duitnow_account:null}]);
+ });
+ it('only the verified admin server can save a design for one QR, with validation and stale-write protection',async()=>{
+  await db.exec('begin');
+  const rejected=async(fn:()=>Promise<unknown>)=>{await db.exec('savepoint rejected');try{await expect(fn()).rejects.toThrow();}finally{await db.exec('rollback to savepoint rejected');}};
+  try {
+   const second='30000000-0000-4000-8000-000000000009';
+   const secondPath=`people/${person}/qr/${second}/40000000-0000-4000-8000-000000000009.png`;
+   await db.query('insert into public.directory_qrs(id,person_id,label,storage_path) values($1,$2,$3,$4)',[second,person,'Second bank',secondPath]);
+   const before=(await db.query<{updated_at:string}>('select updated_at from public.directory_qrs where id=$1',[qr])).rows[0].updated_at;
+   const design={palette:'payindex',shape:'rounded',logo:true};
+   const save=(actor:string,style:unknown,expected=before)=>db.query('select public.directory_save_qr_style($1,$2,$3,$4)',[actor,qr,style===null?null:JSON.stringify(style),expected]);
+   for(const role of ['anon','authenticated']) {
+    await db.exec(`savepoint denied;set role ${role}`);
+    await expect(db.query('select public.directory_save_qr_style($1,$2,$3,$4)',[admin,qr,JSON.stringify(design),before])).rejects.toThrow();
+    await db.exec('rollback to savepoint denied;reset role');
+   }
+   await rejected(()=>save(other,design));
+   for(const bad of [{...design,palette:'javascript:bad'}, {...design,shape:'triangle'}, {...design,logo:'yes'}, {...design,extra:'bad'}, {palette:null,shape:'square',logo:false}, {}])await rejected(()=>save(admin,bad));
+   await save(admin,design);
+   const rows=(await asRole('anon','','select id,qr_style,storage_path from public.directory_qrs order by id')).rows;
+   expect(rows).toEqual([{id:qr,qr_style:design,storage_path:file},{id:second,qr_style:null,storage_path:secondPath}]);
+   await rejected(()=>save(admin,{...design,logo:false},'2020-01-01T00:00:00Z'));
+   const after=(await db.query<{updated_at:string}>('select updated_at from public.directory_qrs where id=$1',[qr])).rows[0].updated_at;
+   await save(admin,null,after);
+   expect((await db.query('select qr_style from public.directory_qrs where id=$1',[qr])).rows[0]).toEqual({qr_style:null});
+  } finally {await db.exec('rollback');}
  });
  it('serves only linked images through download; signing/listing and unlinked files are denied',async()=>{
   expect((await asRole('anon','','select name from storage.objects')).rows).toHaveLength(2);

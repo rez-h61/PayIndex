@@ -23,3 +23,24 @@
 .qr-options > div > button, .qr-options > div > a { display: flex; align-items: center; gap: 9px; justify-content: flex-start; min-height: 44px; padding: 12px 16px; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: #0b0c0e; color: #ccc; font-size: 12px; text-decoration: none; }
 .qr-options > div > :not(:last-child) { border-bottom: 1px solid #24252a; }
 .qr-options > div > :hover { background: #191a1e; }
+
+.qr-style-form > .muted { font-size: 12px; }
+.qr-style-preview { background: #fff; color: #333; border-radius: 12px; min-height: 220px; display: grid; place-items: center; padding: 12px; }
+.qr-style-preview img { display: block; width: 100%; max-width: 300px; height: auto; }
+.qr-style-preview p { padding: 20px; font-size: 12px; text-align: center; }
+.qr-style-form .qr-style-verification { font-size: 11px; color: #b5d2bc; text-align: center; min-height: 20px; }
+.qr-style-choices { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; }
+.qr-style-choices label { position: relative; border: 1px solid #35363b; background: #151619; border-radius: 9px; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; font-size: 11px; cursor: pointer; }
+.qr-style-choices label.selected { border-color: #ff5964; background: #2b171d; }
+.qr-style-choices input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.qr-style-choices label:has(input:focus-visible) { outline: 2px solid #fff; outline-offset: 3px; }
+.qr-swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+ .qr-style-dialog .form { gap: 14px; }
+.qr-style-dialog .dialog-heading { position: sticky; top: -27px; background: #0e0f12; z-index: 2; padding: 12px 0; }
+.qr-style-dialog .form-actions { position: sticky; bottom: -27px; background: #0e0f12; z-index: 2; padding: 12px 0; }
+@media(max-width:640px) {
+ .qr-style-preview img { max-width: 220px; }
+ .qr-style-choices label { font-size: 10px; gap: 4px; }
+ .qr-style-dialog .dialog-heading { top: -23px; }
+ .qr-style-dialog .form-actions { bottom: -23px; }
+}
