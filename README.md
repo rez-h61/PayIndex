@@ -137,3 +137,5 @@ The vector master for the PayIndex logo now lives at `src/assets/payindex-icon.s
 ## QR worker loading after deployment updates
 
 The QR worker is bundled inline with the application, so a cached app cannot request a removed hashed worker file from another deployment. CSP permits same-origin and blob workers (script-src remains self only). Online service-worker navigation fetches the current public app shell; offline navigation uses the precached shell and its matching assets. Navigation URLs, API responses and payment images are not added to the cache. This increases the main bundle in exchange for avoiding a separate worker asset/version dependency. After deploying this update, hard-refresh an already-open tab to leave the old cached app version.
+
+The hosted PayIndex project received the per-QR design migration and directory-manage version 4 on 13 October 2026. `20261013084229_restrict_directory_mutate_execute.sql` also restores the service-only mutation RPC permission expected by the code, for installations that created the new overload manually. Apply outstanding migrations on other installations; avoid rerunning already-applied manual SQL.

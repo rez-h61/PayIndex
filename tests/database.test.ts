@@ -22,6 +22,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('supabase/migrations/202610120001_optional_duitnow_account.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/202610120002_edit_qr_without_upload.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013060157_per_qr_design.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261013084229_restrict_directory_mutate_execute.sql','utf8'));
  await db.query('insert into auth.users values($1,$2,$3),($4,$5,$6)',[admin,'admin@example.test','{}',other,'other@example.test','{"role":"admin"}']);
  await db.query('insert into private.directory_admin(user_id) values($1)',[admin]);
 },30_000);
