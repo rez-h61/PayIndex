@@ -1,10 +1,12 @@
 import type { QRCode } from 'qrcode';
 import icon from './assets/payindex-icon.svg?raw';
-import { QR_PALETTES, type QRStyle } from './qr-style';
+import { QR_COLOURS, QR_PALETTES, type QRStyle } from './qr-style';
 
 export function styledSVG(qr: QRCode, style: QRStyle, size: number) {
   const n = qr.modules.size, margin = 8, side = n + margin * 2;
-  const colors = QR_PALETTES[style.palette];
+  const base = QR_PALETTES[style.palette];
+  const colors = style.colour ? {body:QR_COLOURS[style.colour].hex,eye:style.palette==='classic'?QR_COLOURS[style.colour].hex:base.eye} : base;
+  const eyeShape = style.colour ? (style.palette==='cyber'?'dots':style.palette==='midnight'?'rounded':'square') : style.shape;
   const shapes: string[] = [];
   const dark = (x:number,y:number) => x>=0&&y>=0&&x<n&&y<n&&!!qr.modules.get(y,x);
   const roundedModule = (x:number,y:number,tl:number,tr:number,br:number,bl:number) =>
@@ -27,10 +29,10 @@ export function styledSVG(qr: QRCode, style: QRStyle, size: number) {
     } else shapes.push(`<path d="M${px} ${py}h1v1h-1z" fill="${colors.body}"/>`);
   }
   for(const [x,y] of [[margin,margin],[margin+n-7,margin],[margin,margin+n-7]]) {
-    if(style.shape==='dots') {
+    if(eyeShape==='dots') {
       shapes.push(`<circle cx="${x+3.5}" cy="${y+3.5}" r="3.5" fill="${colors.eye}"/><circle cx="${x+3.5}" cy="${y+3.5}" r="2.5" fill="#fff"/><circle cx="${x+3.5}" cy="${y+3.5}" r="1.5" fill="${colors.eye}"/>`);
     } else {
-      const outer=style.shape==='rounded'?2:0,inner=style.shape==='rounded'?1.2:0,pupil=style.shape==='rounded'?1.3:0;
+      const outer=eyeShape==='rounded'?2:0,inner=eyeShape==='rounded'?1.2:0,pupil=eyeShape==='rounded'?1.3:0;
       shapes.push(`<rect x="${x}" y="${y}" width="7" height="7" rx="${outer}" fill="${colors.eye}"/><rect x="${x+1}" y="${y+1}" width="5" height="5" rx="${inner}" fill="#fff"/><rect x="${x+2}" y="${y+2}" width="3" height="3" rx="${pupil}" fill="${colors.eye}"/>`);
     }
   }

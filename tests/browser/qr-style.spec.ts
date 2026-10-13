@@ -56,7 +56,7 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
   await dialog.evaluate(element=>element.scrollTop=0);
   await page.screenshot({path:`test-results/qr-customizer-${test.info().project.name}.png`,fullPage:true});
   await dialog.getByRole('button',{name:'Save design',exact:true}).click();await expect(dialog).toHaveCount(0);
-  expect(writes).toEqual([{palette:'payindex',shape:'rounded',logo:true}]);expect(qrs[1].qr_style).toBeNull();
+  expect(writes).toEqual([{palette:'payindex',shape:'rounded',logo:true,colour:'black'}]);expect(qrs[1].qr_style).toBeNull();
   await expect(page.getByText('Styled QR',{exact:true})).toBeVisible({timeout:20000});
   await page.reload();await expect(page.getByText('Styled QR',{exact:true})).toBeVisible({timeout:20000});
   const image=page.getByAltText('Style Friend’s First bank receiving QR');
@@ -96,7 +96,7 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
   await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});
 
 
-  await expect(dialog.getByRole('radio')).toHaveCount(19);
+  await expect(dialog.getByRole('radio')).toHaveCount(23);
   await dialog.getByRole('radio',{name:'Pink',exact:true}).check();await dialog.getByRole('radio',{name:'Dots',exact:true}).check();
   await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});
   await dialog.getByRole('button',{name:'Apply this design to all QRs',exact:true}).click();
@@ -105,12 +105,12 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
   await dialog.getByRole('button',{name:'Apply this design to all QRs',exact:true}).click();
   await expect(dialog.getByText('All QRs passed the scan check.')).toBeVisible({timeout:30000});
   await dialog.getByRole('button',{name:'Apply to all 2 QRs',exact:true}).click();await expect(dialog).toHaveCount(0);
-  expect(qrs.every(q=>JSON.stringify(q.qr_style)===JSON.stringify({palette:'pink',shape:'dots',logo:false}))).toBe(true);
+  expect(qrs.every(q=>JSON.stringify(q.qr_style)===JSON.stringify({palette:'classic',shape:'dots',logo:false,colour:'pink'}))).toBe(true);
   await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
   await dialog.getByRole('button',{name:'Reset all QRs to default',exact:true}).click();await dialog.getByRole('button',{name:'Cancel',exact:true}).click();expect(bulkWrites).toHaveLength(1);
   await page.getByRole('button',{name:'Customize QR',exact:true}).click();await dialog.getByRole('button',{name:'Reset all QRs to default',exact:true}).click();
   await dialog.getByRole('button',{name:'Reset all 2 QRs',exact:true}).click();await expect(dialog).toHaveCount(0);
-  expect(qrs.every(q=>q.qr_style===null)).toBe(true);expect(qrs.map(q=>q.storage_path)).toEqual(['first.png','second.png']);expect(bulkWrites).toEqual([{palette:'pink',shape:'dots',logo:false},null]);
+  expect(qrs.every(q=>q.qr_style===null)).toBe(true);expect(qrs.map(q=>q.storage_path)).toEqual(['first.png','second.png']);expect(bulkWrites).toEqual([{palette:'classic',shape:'dots',logo:false,colour:'pink'},null]);
   await openOptions();await page.getByRole('button',{name:'Customize QR',exact:true}).click();
   await expect(dialog.getByText('Scan check passed. Original data matches.')).toBeVisible({timeout:20000});brokenSecond=true;
   await dialog.getByRole('button',{name:'Apply this design to all QRs',exact:true}).click();
@@ -132,10 +132,10 @@ test('all preset combinations render to scannable SVG with unchanged data',async
     const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0);
     const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
     const results=[];const previews:string[]=[];
-    for(const palette of ['classic','payindex','midnight','cyber','pink','crimson','coral','amber','olive','forest','teal','ocean','indigo','violet','plum'])for(const shape of ['square','rounded','dots','classy'])for(const logo of [false,true]){
-      const result=cleanQR({pixels:frame.data,width:frame.width,height:frame.height},{palette,shape,logo});
+    for(const palette of ['classic','payindex','midnight','cyber'])for(const colour of ['black','slate','navy','blue','pink','crimson','coral','amber','olive','forest','teal','ocean','indigo','violet','plum'])for(const shape of ['square','rounded','dots','classy'])for(const logo of [false,true]){
+      const result=cleanQR({pixels:frame.data,width:frame.width,height:frame.height},{palette,shape,logo,colour});
       if(!result){results.push({palette,shape,logo,valid:false});continue;}
-      if(palette==='payindex'&&!logo)previews.push(`<div style="background:#151619;border:1px solid #333;border-radius:18px;padding:20px"><div style="background:#fff;border-radius:12px">${result.svg}</div><h2 style="text-align:center;font:600 20px system-ui;text-transform:capitalize;margin:18px 0 0">${shape}</h2></div>`);
+      if(palette==='payindex'&&colour==='pink'&&!logo)previews.push(`<div style="background:#151619;border:1px solid #333;border-radius:18px;padding:20px"><div style="background:#fff;border-radius:12px">${result.svg}</div><h2 style="text-align:center;font:600 20px system-ui;text-transform:capitalize;margin:18px 0 0">${shape}</h2></div>`);
       const url=URL.createObjectURL(new Blob([result.svg],{type:'image/svg+xml'}));
       try{
         const img=new Image();img.src=url;await img.decode();canvas.width=result.width;canvas.height=result.height;ctx.drawImage(img,0,0);
@@ -147,6 +147,6 @@ test('all preset combinations render to scannable SVG with unchanged data',async
     document.querySelectorAll('main svg').forEach(svg=>{svg.setAttribute('width','100%');svg.setAttribute('height','auto');});
     return results;
   },source);
-  expect(results).toHaveLength(120);expect(results.filter(r=>!r.valid)).toEqual([]);
+  expect(results).toHaveLength(480);expect(results.filter(r=>!r.valid)).toEqual([]);
   await page.screenshot({path:'test-results/qr-shape-comparison.png',fullPage:true});
 });

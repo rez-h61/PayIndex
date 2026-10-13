@@ -1,4 +1,4 @@
-import {QR_PALETTES,validQRStyle} from '../src/qr-style';
+import {QR_COLOURS,QR_DESIGNS,QR_PALETTES,validQRStyle} from '../src/qr-style';
 import { describe, it, expect } from 'vitest';
 import { labelKey, validDuitNowAccount, validLabel, validName, validImageURL } from '../src/config';
 import { inspectImage } from '../supabase/functions/_shared/images';
@@ -14,6 +14,10 @@ describe('QR palette validation',()=>{
  it('offers exactly 15 colours including the supplied pink and keeps all style options strict',()=>{
   expect(Object.keys(QR_PALETTES)).toHaveLength(15);expect(QR_PALETTES.pink.body).toBe('#ed3068');expect(QR_PALETTES.pink.eye).toBe('#ed3068');
   for(const palette of Object.keys(QR_PALETTES))expect(validQRStyle({palette,shape:'square',logo:false})).toBe(true);
+  expect(Object.keys(QR_COLOURS)).toHaveLength(15);
+  for(const palette of QR_DESIGNS)for(const colour of Object.keys(QR_COLOURS))expect(validQRStyle({palette,colour,shape:'rounded',logo:true})).toBe(true);
+  expect(validQRStyle({palette:'classic',colour:'unknown',shape:'square',logo:false})).toBe(false);
+  expect(validQRStyle({palette:'classic',colour:null,shape:'square',logo:false})).toBe(false);
   expect(validQRStyle({palette:'custom',shape:'square',logo:false})).toBe(false);
   expect(validQRStyle({palette:'pink',shape:'square',logo:'yes'})).toBe(false);
  });
