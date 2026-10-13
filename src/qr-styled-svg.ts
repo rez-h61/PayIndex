@@ -6,17 +6,33 @@ export function styledSVG(qr: QRCode, style: QRStyle, size: number) {
   const n = qr.modules.size, margin = 8, side = n + margin * 2;
   const colors = QR_PALETTES[style.palette];
   const shapes: string[] = [];
+  const dark = (x:number,y:number) => x>=0&&y>=0&&x<n&&y<n&&!!qr.modules.get(y,x);
+  const roundedModule = (x:number,y:number,tl:number,tr:number,br:number,bl:number) =>
+    `M${x+tl} ${y}H${x+1-tr}Q${x+1} ${y} ${x+1} ${y+tr}V${y+1-br}Q${x+1} ${y+1} ${x+1-br} ${y+1}H${x+bl}Q${x} ${y+1} ${x} ${y+1-bl}V${y+tl}Q${x} ${y} ${x+tl} ${y}Z`;
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    if (!qr.modules.get(y, x)) continue;
+    if (!dark(x,y)) continue;
     const eye = (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
-    const fill = eye ? colors.eye : colors.body;
-    const px = x + margin, py = y + margin;
-    // Preserve finder, timing, alignment and format/version modules as squares.
-    const shape = qr.modules.isReserved(y, x) ? 'square' : style.shape;
-    if (shape === 'dots') shapes.push(`<circle cx="${px + .5}" cy="${py + .5}" r=".49" fill="${fill}"/>`);
-    else if (shape === 'rounded') shapes.push(`<rect x="${px}" y="${py}" width="1" height="1" rx=".22" fill="${fill}"/>`);
-    else if (shape === 'classy') shapes.push(`<path d="M${px + .4} ${py}h.6v.6q0 .4-.4 .4h-.6v-.6q0-.4 .4-.4Z" fill="${fill}"/>`);
-    else shapes.push(`<path d="M${px} ${py}h1v1h-1z" fill="${fill}"/>`);
+    if(eye)continue; // Finder eyes are drawn as continuous rings below.
+    const px=x+margin,py=y+margin;
+    const shape=qr.modules.isReserved(y,x)?'square':style.shape;
+    if(shape==='dots')shapes.push(`<circle cx="${px+.5}" cy="${py+.5}" r=".43" fill="${colors.body}"/>`);
+    else if(shape==='rounded'||shape==='classy') {
+      // Round only exposed corners: neighbouring modules join into continuous paths.
+      const up=dark(x,y-1),down=dark(x,y+1),left=dark(x-1,y),right=dark(x+1,y);
+      const radius=shape==='rounded'?.5:.8;
+      const tl=!up&&!left?radius:0,br=!down&&!right?radius:0;
+      const tr=shape==='rounded'&&!up&&!right?radius:0;
+      const bl=shape==='rounded'&&!down&&!left?radius:0;
+      shapes.push(`<path d="${roundedModule(px,py,tl,tr,br,bl)}" fill="${colors.body}"/>`);
+    } else shapes.push(`<path d="M${px} ${py}h1v1h-1z" fill="${colors.body}"/>`);
+  }
+  for(const [x,y] of [[margin,margin],[margin+n-7,margin],[margin,margin+n-7]]) {
+    if(style.shape==='dots') {
+      shapes.push(`<circle cx="${x+3.5}" cy="${y+3.5}" r="3.5" fill="${colors.eye}"/><circle cx="${x+3.5}" cy="${y+3.5}" r="2.5" fill="#fff"/><circle cx="${x+3.5}" cy="${y+3.5}" r="1.5" fill="${colors.eye}"/>`);
+    } else {
+      const outer=style.shape==='rounded'?2:0,inner=style.shape==='rounded'?1.2:0,pupil=style.shape==='rounded'?1.3:0;
+      shapes.push(`<rect x="${x}" y="${y}" width="7" height="7" rx="${outer}" fill="${colors.eye}"/><rect x="${x+1}" y="${y+1}" width="5" height="5" rx="${inner}" fill="#fff"/><rect x="${x+2}" y="${y+2}" width="3" height="3" rx="${pupil}" fill="${colors.eye}"/>`);
+    }
   }
   if (style.logo) {
     // Small central badge, with high error correction selected by cleanQR.

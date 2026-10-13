@@ -93,10 +93,11 @@ test('all preset combinations render to scannable SVG with unchanged data',async
     const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
     const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0);
     const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
-    const results=[];
+    const results=[];const previews:string[]=[];
     for(const palette of ['classic','payindex','midnight','cyber'])for(const shape of ['square','rounded','dots','classy'])for(const logo of [false,true]){
       const result=cleanQR({pixels:frame.data,width:frame.width,height:frame.height},{palette,shape,logo});
       if(!result){results.push({palette,shape,logo,valid:false});continue;}
+      if(palette==='payindex'&&!logo)previews.push(`<div style="background:#151619;border:1px solid #333;border-radius:18px;padding:20px"><div style="background:#fff;border-radius:12px">${result.svg}</div><h2 style="text-align:center;font:600 20px system-ui;text-transform:capitalize;margin:18px 0 0">${shape}</h2></div>`);
       const url=URL.createObjectURL(new Blob([result.svg],{type:'image/svg+xml'}));
       try{
         const img=new Image();img.src=url;await img.decode();canvas.width=result.width;canvas.height=result.height;ctx.drawImage(img,0,0);
@@ -104,7 +105,10 @@ test('all preset combinations render to scannable SVG with unchanged data',async
         results.push({palette,shape,logo,valid:verifyQR({pixels:pixels.data,width:pixels.width,height:pixels.height},result.proof)});
       }finally{URL.revokeObjectURL(url);}
     }
+    document.body.innerHTML=`<main style="max-width:1100px;margin:40px auto;padding:24px;color:#fff"><h1 style="font:600 30px system-ui;margin:0 0 28px">PayIndex · QR shape designs</h1><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px">${previews.join('')}</div></main>`;
+    document.querySelectorAll('main svg').forEach(svg=>{svg.setAttribute('width','100%');svg.setAttribute('height','auto');});
     return results;
   },source);
   expect(results).toHaveLength(32);expect(results.filter(r=>!r.valid)).toEqual([]);
+  await page.screenshot({path:'test-results/qr-shape-comparison.png',fullPage:true});
 });
