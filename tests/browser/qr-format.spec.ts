@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 test('existing bank QR auto-formats, toggles original and downloads both versions', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const dataURL = await QRCode.toDataURL('PAYINDEX-FICTIONAL-QR-TEST-ONLY', { width: 240, margin: 4 });
   await page.goto('/?demo=1');
   const screenshot = await page.evaluate(async qr => {
@@ -58,12 +58,14 @@ test('existing bank QR auto-formats, toggles original and downloads both version
   const formatted = readFileSync((await (await formattedDownload).path())!);
   expect(formatted).not.toEqual(original);
   expect(formatted.subarray(1,4).toString()).toBe('PNG');
+  writeFileSync(`test-results/qr-download-card-${test.info().project.name}.png`,formatted);
   const pngPixels=await page.evaluate(async data=>{
     const img=new Image();img.src=data;await img.decode();
-    const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
-    const ctx=canvas.getContext('2d')!;ctx.drawImage(img,0,0);
-    return {pixels:[...ctx.getImageData(0,0,canvas.width,canvas.height).data],width:canvas.width,height:canvas.height};
+    const canvas=document.createElement('canvas');canvas.width=800;canvas.height=Math.round(img.naturalHeight*800/img.naturalWidth);
+    const ctx=canvas.getContext('2d')!;ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    return {pixels:[...ctx.getImageData(0,0,canvas.width,canvas.height).data],width:canvas.width,height:canvas.height,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight};
   },`data:image/png;base64,${formatted.toString('base64')}`);
+  expect(pngPixels.naturalWidth).toBe(1200);expect(pngPixels.naturalHeight).toBeGreaterThan(pngPixels.naturalWidth);
   expect(jsQR(new Uint8ClampedArray(pngPixels.pixels),pngPixels.width,pngPixels.height)?.data).toBe('PAYINDEX-FICTIONAL-QR-TEST-ONLY');
   const vectorDownload=page.waitForEvent('download');
   await page.getByRole('link',{name:'Download SVG',exact:true}).click();

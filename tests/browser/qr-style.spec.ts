@@ -68,8 +68,8 @@ test('admin saves a verified design for only one QR, visitors get it, and reset 
   const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Save QR',exact:true}).click();
   const saved=readFileSync((await(await downloaded).path())!);
   const savedPixels=await page.evaluate(async data=>{
-    const image=new Image();image.src=data;await image.decode();const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
-    const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0);return {pixels:[...ctx.getImageData(0,0,canvas.width,canvas.height).data],width:canvas.width,height:canvas.height};
+    const image=new Image();image.src=data;await image.decode();const canvas=document.createElement('canvas');canvas.width=800;canvas.height=Math.round(image.naturalHeight*800/image.naturalWidth);
+    const ctx=canvas.getContext('2d')!;ctx.drawImage(image,0,0,canvas.width,canvas.height);return {pixels:[...ctx.getImageData(0,0,canvas.width,canvas.height).data],width:canvas.width,height:canvas.height};
   },`data:image/png;base64,${saved.toString('base64')}`);
   expect(jsQR(new Uint8ClampedArray(savedPixels.pixels),savedPixels.width,savedPixels.height)?.data).toBe(payload);
   expect(saved).not.toEqual(png);

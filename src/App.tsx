@@ -1,3 +1,4 @@
+import { qrDownloadCard } from './qr-download';
 import { BulkQRStyleEditor } from './BulkQRStyleEditor';
 import type { QRStyle } from './qr-style';
 import { QRStyleEditor } from './QRStyleEditor';
@@ -164,18 +165,28 @@ function Viewer({qr, person, demo, admin, onCustomize}: {qr:QR;person:Person;dem
   const [error,setError] = useState(false), [hint,setHint] = useState(''), [saving,setSaving] = useState(false);
   const {formatted,checking}=useFormattedQR(image?.blob??null,qr.qr_style??null);
   const [showOriginal,setShowOriginal]=useState(false);
-  async function save(useFormatted = false) {
+  async function save(card = false) {
     if (!image) return; setSaving(true); setHint('');
-    const file = new File([useFormatted&&formatted?formatted.blob:image.blob],`${person.display_name.replace(/[^\p{L}\p{N}_-]/gu,'-')}-${qr.label_key}.${useFormatted&&formatted?'png':qr.storage_path.split('.').pop()}`,{type:useFormatted&&formatted?'image/png':image.blob.type});
-    try { if (/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.canShare?.({files:[file]})) { await navigator.share({files:[file],title:`${person.display_name} · ${qr.label}`}); setHint('Choose Save Image or Save to Files from the share sheet.'); } else { const a=document.createElement('a'); a.href=useFormatted&&formatted?formatted.pngURL:image.url; a.download=file.name; a.click(); setHint('If no download appears, use More options → Open original image, then Save Image or Share → Save to Files.'); } }
-    catch(e) { if ((e as Error).name !== 'AbortError') setHint('Use More options → Open original image, then Save Image or Share → Save to Files.'); } finally { setSaving(false); }
+    let downloadURL: string | undefined;
+    try {
+      const blob = card ? await qrDownloadCard(formatted?.url ?? image.url, person.display_name, qr.label) : image.blob;
+      const file = new File([blob],`${person.display_name.replace(/[^\p{L}\p{N}_-]/gu,'-')}-${qr.label_key}.${card?'png':qr.storage_path.split('.').pop()}`,{type:blob.type});
+      if (/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.canShare?.({files:[file]})) {
+        await navigator.share({files:[file],title:`${person.display_name} · ${qr.label}`});setHint('Choose Save Image or Save to Files from the share sheet.');
+      } else {
+        downloadURL=card?objectURL(blob):undefined;
+        const a=document.createElement('a');a.href=downloadURL??image.url;a.download=file.name;a.click();
+        setHint('If no download appears, use More options → Open original image, then Save Image or Share → Save to Files.');
+      }
+    } catch(e) { if ((e as Error).name !== 'AbortError') setHint('The image could not be saved. Try again, or use More options → Save original.'); }
+    finally { if(downloadURL){const url=downloadURL;window.setTimeout(()=>releaseURL(url),60_000);}setSaving(false); }
   }
   return <section className="viewer">
     <p className="eyebrow">RECEIVING QR</p><h1 tabIndex={-1}>{person.display_name}</h1><p className="viewer-label">{qr.label}</p>
     <div className="qr-stage">{demo ? <div className="demo-placeholder"><QrCode size={48}/><strong>QR preview</strong><span>No payment QR in demo mode</span></div> : failed || error ? <ErrorBox message="This QR couldn’t load. It may have been replaced." retry={() => {setError(false);setRetry(v=>v+1);}}/> : !image || (checking&&!showOriginal) ? <div className="qr-loading" role="status"><span className="spinner" aria-hidden="true"/><span>Preparing QR…</span></div> : <img src={!showOriginal&&formatted?formatted.url:image.url} alt={`${person.display_name}’s ${qr.label} receiving QR`} onError={()=>setError(true)}/>}</div>
     {image&&<div className="qr-format-status">{!checking&&formatted?<><span className="clean-qr-badge"><Check size={13}/>{showOriginal?'Original':qr.qr_style&&!formatted.fallback?'Styled QR':'Clean QR'}</span>{showOriginal&&<button type="button" className="text-button" onClick={()=>setShowOriginal(false)}>Back to clean QR</button>}</>:null}</div>}
     <p className="updated">UPDATED {formatDate(qr.updated_at).toUpperCase()}</p>
-    <button className="primary full" onClick={() => void save(!!formatted)} disabled={!image || saving || error || checking}><ArrowDownToLine size={18}/>{saving ? 'Saving…' : 'Save QR'}</button>
+    <button className="primary full" onClick={() => void save(true)} disabled={!image || saving || error || checking}><ArrowDownToLine size={18}/>{saving ? 'Saving…' : 'Save QR'}</button>
     {hint && <p className="footnote" role="status">{hint}</p>}
     {image&&<details className="qr-options"><summary>More options</summary><div>
       {admin&&<button type="button" onClick={onCustomize}>Customize QR</button>}
