@@ -149,3 +149,7 @@ Admin-only directory actions appear in Customize QR. Apply this design to all QR
 The server saves a bulk operation in one transaction. Its complete ID/timestamp snapshot must still match the directory, including inserts/deletions; otherwise all changes are rejected and the admin must refresh. Bulk operations currently support up to 5,000 records and only records visible in the loaded directory can form a complete snapshot. The RPC is service-only, with the sole admin rechecked inside the transaction.
 
 Migration `20261013085314_qr_palette_and_bulk_style.sql` and directory-manage version 5 were applied to the hosted PayIndex project on 13 October 2026. No live bulk design changes were performed as part of deployment. Deploy the frontend for the new controls. Other installations must apply that migration and deploy the updated function and shared palette module first.
+
+## Admin security setup
+
+See [ADMIN-SECURITY.md](./ADMIN-SECURITY.md) for Turnstile setup, server enforcement, rate limits, password protection, and deployment verification. CAPTCHA is not active until both the public site key and Supabase Auth settings are configured. External HTTPS QR imports remain supported.

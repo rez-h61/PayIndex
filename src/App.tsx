@@ -1,3 +1,4 @@
+import { AdminCaptcha } from './AdminCaptcha';
 import { WebsiteShare } from './WebsiteShare';
 import { qrDownloadCard } from './qr-download';
 import { BulkQRStyleEditor } from './BulkQRStyleEditor';
@@ -149,17 +150,20 @@ export default function App() {
 
 function AdminLogin({ checked, demo, onBack, onSuccess }: { checked: boolean; demo: boolean; onBack: () => void; onSuccess: () => Promise<void> }) {
   const [email,setEmail] = useState(''), [password,setPassword] = useState(''), [busy,setBusy] = useState(false), [error,setError] = useState('');
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? '';
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
   async function submit(e: FormEvent) {
-    e.preventDefault(); if (busy || !supabase || demo) return; setBusy(true); setError('');
+    e.preventDefault(); if (busy || !supabase || demo || !checked || (siteKey && !captchaToken)) return; setBusy(true); setError('');
     try {
-      const result = await supabase.auth.signInWithPassword({email:email.trim(),password});
-      if (result.error) throw new Error('Email or password wasn’t accepted. Please try again.');
+      const result = await supabase.auth.signInWithPassword({email:email.trim(),password,...(siteKey ? {options:{captchaToken}} : {})});
+      if (result.error) throw new Error(result.error.status === 429 ? 'Too many sign-in attempts. Please wait a few minutes before trying again.' : result.error.code === 'captcha_failed' ? 'Verification expired or was not accepted. Please verify again.' : 'Email or password was not accepted. Please try again.');
       const access = await supabase.rpc('is_directory_admin');
       if (access.error || access.data !== true) { await supabase.auth.signOut({scope:'local'}); throw new Error('This account isn’t the directory admin. Check the admin setup.'); }
       setPassword(''); await onSuccess();
-    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); setCaptchaToken(''); setCaptchaAttempt(value => value + 1); }
   }
-  return <><Back onClick={onBack}/><section className="login-panel"><span className="login-icon"><LockKeyhole size={23}/></span><p className="eyebrow">JUST FOR THE ADMIN</p><h1 tabIndex={-1}>Welcome back.</h1><p className="muted">A quiet place to keep things up to date.</p><form className="form" onSubmit={submit}><label>Email<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} disabled={busy}/></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} disabled={busy}/></label>{error && <ErrorBox message={error}/>}<button className="primary full" disabled={busy || !configured || demo || !checked}>{busy ? 'Signing in…' : 'Sign in'}<ArrowRight size={16}/></button></form><p className="footnote">{demo ? 'Login is disabled in this design preview.' : !configured ? 'Connect Supabase to enable admin sign-in.' : 'Friends can browse without an account.'}</p></section></>;
+  return <><Back onClick={onBack}/><section className="login-panel"><span className="login-icon"><LockKeyhole size={23}/></span><p className="eyebrow">JUST FOR THE ADMIN</p><h1 tabIndex={-1}>Welcome back.</h1><p className="muted">A quiet place to keep things up to date.</p><form className="form" onSubmit={submit}><label>Email<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} disabled={busy}/></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} disabled={busy}/></label>{siteKey && !demo && <AdminCaptcha key={captchaAttempt} siteKey={siteKey} onToken={setCaptchaToken}/>} {error && <ErrorBox message={error}/>}<button className="primary full" disabled={busy || !configured || demo || !checked || (!!siteKey && !captchaToken)}>{busy ? 'Signing in…' : 'Sign in'}<ArrowRight size={16}/></button></form><p className="footnote">{demo ? 'Login is disabled in this design preview.' : !configured ? 'Connect Supabase to enable admin sign-in.' : 'Friends can browse without an account.'}</p></section></>;
 }
 function Viewer({qr, person, demo, admin, onCustomize}: {qr:QR;person:Person;demo:boolean;admin:boolean;onCustomize:()=>void}) {
   const [retry,setRetry] = useState(0), {value:image,failed} = useStoredImage(demo ? null : qr.storage_path,retry);

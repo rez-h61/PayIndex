@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 // Server scheduler only. Never put CLEANUP_SECRET or a service key in the app.
 Deno.serve(async req => {
   const secret = Deno.env.get('CLEANUP_SECRET');

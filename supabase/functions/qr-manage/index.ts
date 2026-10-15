@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import { inspectImage } from '../_shared/images.ts';
 import { cors, json } from '../_shared/http.ts';
 const url = Deno.env.get('SUPABASE_URL')!;

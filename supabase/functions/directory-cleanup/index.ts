@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 Deno.serve(async req => {
   const secret = Deno.env.get('CLEANUP_SECRET');
   if (req.method !== 'POST' || !secret || req.headers.get('Authorization') !== `Bearer ${secret}`) return new Response('Forbidden',{status:403});
