@@ -1,3 +1,5 @@
+import { installAdminFixture } from './admin-fixture';
+import type { Route } from '@playwright/test';
 import { test, expect } from '@playwright/test';
 import jsQR from 'jsqr';
 
@@ -5,14 +7,12 @@ test('website share QR is fixed, publicly visible, and its link is editable only
   test.setTimeout(120_000);
   let settings={share_url:'https://payindex-kokoro.vercel.app/',updated_at:'2026-10-13T00:00:00Z'};
   const writes:unknown[]=[];
-  await page.route('https://fixture.supabase.co/**',async route=>{
-    const req=route.request(),url=new URL(req.url());
+  const backendFixture = async (route: Route) => {
+    const req=route.request(),url=new URL(req.url());if(url.pathname==='/api/admin')url.pathname='/functions/v1/directory-manage';
     const json=(value:unknown)=>route.fulfill({contentType:'application/json',body:JSON.stringify(value)});
     if(req.method()==='OPTIONS')return route.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*'}});
     if(url.pathname.endsWith('directory_settings'))return json(settings);
     if(url.pathname.endsWith('directory_people')||url.pathname.endsWith('directory_qrs'))return json([]);
-    if(url.pathname.endsWith('is_directory_admin'))return json(req.headers().authorization?.includes('fixture-admin-token')??false);
-    if(url.pathname==='/auth/v1/token')return json({access_token:'fixture-admin-token',refresh_token:'fixture-refresh',token_type:'bearer',expires_in:3600,user:{id:'10000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:'admin@example.test',app_metadata:{},user_metadata:{}}});
     if(url.pathname.endsWith('directory-manage')){
       const form=await new Response(req.postDataBuffer()!,{headers:{'content-type':req.headers()['content-type']}}).formData();
       expect(form.get('action')).toBe('save_share_url');expect(form.get('qr_style')).toBeNull();expect(form.get('expected_updated_at')).toBe(settings.updated_at);
@@ -20,7 +20,9 @@ test('website share QR is fixed, publicly visible, and its link is editable only
       return json({saved:true});
     }
     return json({});
-  });
+  };
+  await page.route('https://fixture.supabase.co/**',backendFixture);
+  await installAdminFixture(page,backendFixture);
   const show=async()=>{await page.getByRole('button',{name:'Install and help'}).click();await page.getByRole('button',{name:'Share PayIndex QR',exact:true}).click();await expect(page.getByAltText('PayIndex website share QR')).toBeVisible({timeout:20000});};
   const scan=async()=>{
     const pixels=await page.getByAltText('PayIndex website share QR').evaluate((img:HTMLImageElement)=>{
@@ -43,6 +45,6 @@ test('website share QR is fixed, publicly visible, and its link is editable only
   await expect(page.getByText('Website share link saved.',{exact:true})).toBeVisible();
   await expect.poll(scan,{timeout:20000}).toBe('https://example.test/new-directory?from=qr');
   expect(writes).toEqual(['https://example.test/new-directory?from=qr']);
-  await page.evaluate(()=>localStorage.clear());await page.reload();await show();
+  await page.context().clearCookies();await page.reload();await show();
   expect(await scan()).toBe(settings.share_url);await expect(page.getByText('Edit share link',{exact:true})).toHaveCount(0);
 });

@@ -1,5 +1,7 @@
 # Setup keselamatan admin PayIndex
 
+**Update:** Login kini menggunakan backend cookie HttpOnly. Untuk deployment kod semasa, ikut [COOKIE-SESSIONS.md](./COOKIE-SESSIONS.md) dahulu; panduan Turnstile di bawah menerangkan setup widget/provider sahaja.
+
 Kod CAPTCHA tersedia, tetapi perlindungan live hanya aktif selepas frontend
 dideploy dengan site key sebenar **dan** Supabase Auth menguatkuasakan CAPTCHA.
 Tiada perubahan kepada akses public directory.

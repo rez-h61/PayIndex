@@ -1,7 +1,7 @@
 import type { QRStyle } from './qr-style';
 export const APP_NAME = 'PayIndex';
 export const PROVIDERS = ['Maybank', 'TnG eWallet', 'ShopeePay', 'GXBank'];
-export const MAX_BYTES = 5 * 1024 * 1024;
+export const MAX_BYTES = 4 * 1024 * 1024;
 export const ASSET_BUCKET = 'directory-assets';
 export type Person = { id: string; display_name: string; avatar_path: string | null; avatar_url: string | null; updated_at: string };
 export type QR = { id: string; person_id: string; label: string; label_key: string; storage_path: string; duitnow_account?: string | null; qr_style?: QRStyle | null; updated_at: string };

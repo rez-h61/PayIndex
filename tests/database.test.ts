@@ -15,6 +15,8 @@ beforeAll(async()=>{
  create function storage.allow_only_operation(operation text) returns boolean language sql stable as $$select current_setting('test.storage_operation',true)=operation$$;
  grant usage on schema auth,storage to anon,authenticated;grant execute on function auth.uid() to anon,authenticated;
  create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb);
+ create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id));
+ create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text,created_at timestamptz default now());alter table storage.objects enable row level security;grant select,insert,update,delete on storage.objects to anon,authenticated;`);
  await db.exec(readFileSync('supabase/migrations/202610060001_payindex.sql','utf8'));
@@ -28,6 +30,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('supabase/migrations/20261013104617_scope_bulk_qr_style_update.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013114437_website_share_qr.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261013122110_restrict_share_settings_writes.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261015131407_active_directory_admin_session.sql','utf8'));
  await db.query('insert into auth.users values($1,$2,$3),($4,$5,$6)',[admin,'admin@example.test','{}',other,'other@example.test','{"role":"admin"}']);
  await db.query('insert into private.directory_admin(user_id) values($1)',[admin]);
 },30_000);
@@ -49,6 +52,18 @@ describe('single-admin directory migration and access boundaries',()=>{
    expect((await asRole('anon','','select share_url from public.directory_settings')).rows[0]).toEqual({share_url:'https://example.test/payindex'});
    await rejected(admin,'https://stale.example.test/');
   } finally {await db.exec('rollback');}
+ });
+ it('checks the active Auth session and admin identity, and rejects revoked or fabricated sessions',async()=>{
+  const session='50000000-0000-4000-8000-000000000001';
+  await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,admin]);
+  await db.exec(`set request.jwt.claims='{"session_id":"${session}"}'`);
+  expect((await asRole('authenticated',admin,'select public.is_active_directory_admin() as allowed')).rows[0]).toEqual({allowed:true});
+  expect((await asRole('authenticated',other,'select public.is_active_directory_admin() as allowed')).rows[0]).toEqual({allowed:false});
+  await expect(asRole('anon','','select public.is_active_directory_admin()')).rejects.toThrow();
+  await db.query('delete from auth.sessions where id=$1',[session]);
+  expect((await asRole('authenticated',admin,'select public.is_active_directory_admin() as allowed')).rows[0]).toEqual({allowed:false});
+  await db.exec(`set request.jwt.claims='{"session_id":"invalid"}'`);
+  expect((await asRole('authenticated',admin,'select public.is_active_directory_admin() as allowed')).rows[0]).toEqual({allowed:false});
  });
  it('has exactly one admin, with no signup membership or self-promotion',async()=>{
   expect((await db.query('select * from public.profiles')).rows).toHaveLength(0);

@@ -22,6 +22,12 @@ Deno.serve(async req => {
     if (!token) return json(req, { code: 'forbidden' }, 401);
     const { data: auth, error: authError } = await service.auth.getUser(token);
     if (authError || !auth.user) return json(req, { code: 'forbidden' }, 401);
+    const sessionCheck = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/rpc/is_active_directory_admin`, {
+      method: 'POST', headers: { apikey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: '{}',
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!sessionCheck.ok) return json(req, { code: 'setup_required' }, 503);
+    if (await sessionCheck.json() !== true) return json(req, { code: 'forbidden' }, 403);
     const actor = auth.user.id;
     const access = await service.rpc('directory_check_admin', { actor });
     if (access.error || access.data !== true) return json(req, { code: 'forbidden' }, 403);

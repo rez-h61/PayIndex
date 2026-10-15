@@ -10,13 +10,14 @@ test('login requires verification, clears expired/used tokens, and handles rate 
       remove() {}
     };`,
   }));
-  await page.route('https://security-fixture.supabase.co/**', route => {
-    if (route.request().url().includes('/auth/v1/token')) {
+  await page.route('**/api/admin?*', route => {
+    if (new URL(route.request().url()).searchParams.get('action') === 'login') {
       attempts.push(route.request().postDataJSON());
-      return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ code: 'over_request_rate_limit', message: 'Rate limit exceeded' }) });
+      return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ code: 'rate_limited', message: 'Rate limit exceeded' }) });
     }
-    return route.fulfill({ contentType: 'application/json', body: '[]' });
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ admin: false }) });
   });
+  await page.route('https://security-fixture.supabase.co/**', route => route.fulfill({ contentType: 'application/json', body: '[]' }));
   await page.goto('/admin/login');
   const signIn = page.getByRole('button', { name: 'Sign in', exact: true });
   await page.getByLabel('Email', { exact: true }).fill('admin@example.test');
@@ -35,7 +36,7 @@ test('login requires verification, clears expired/used tokens, and handles rate 
   await signIn.click();
   await expect(page.getByRole('alert')).toContainText('Too many sign-in attempts');
   expect(attempts).toHaveLength(1);
-  expect(attempts[0].gotrue_meta_security).toEqual({ captcha_token: 'fresh-token' });
+  expect(attempts[0].captchaToken).toBe('fresh-token');
   await expect.poll(() => page.evaluate(() => (window as any).__captchaRenders)).toBeGreaterThan(initialRenders);
   await expect(signIn).toBeDisabled();
   await page.evaluate(() => (window as any).__captchaOptions['error-callback']());
@@ -50,6 +51,7 @@ test('Turnstile is not loaded for public directory visitors', async ({ page }) =
   let requests = 0;
   await page.route('https://challenges.cloudflare.com/**', route => { requests++; return route.abort(); });
   await page.route('https://security-fixture.supabase.co/**', route => route.fulfill({ contentType: 'application/json', body: '[]' }));
+  await page.route('**/api/admin?*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ admin: false }) }));
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'A place for your people.' })).toBeVisible();
   expect(requests).toBe(0);

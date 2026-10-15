@@ -15,7 +15,7 @@ self.addEventListener('activate', event => { event.waitUntil((async () => {
 })()); });
 self.addEventListener('fetch', event => {
   const request = event.request, url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin || request.headers.has('authorization')) return;
+  if (url.pathname.startsWith('/api/') || request.method !== 'GET' || url.origin !== self.location.origin || request.headers.has('authorization')) return;
   // Online navigation gets the current deployment shell; offline uses the complete
   // precached version. Never cache navigation URLs or query strings.
   if (request.mode === 'navigate') {

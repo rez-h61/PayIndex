@@ -23,7 +23,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173/`. The existing `.env` contains the provided Supabase URL and public publishable key. On a new checkout, copy `.env.example` to `.env` and supply your project values. No secret/service key belongs in `VITE_` variables.
+Open `http://127.0.0.1:5173/`. The existing `.env` contains the provided Supabase URL and public publishable key. On a new checkout, copy `.env.example` to `.env` and supply your project values. No secret/service key belongs in `VITE_` variables. Admin login now also requires the server configuration in [COOKIE-SESSIONS.md](./COOKIE-SESSIONS.md).
 
 Development design preview: `http://127.0.0.1:5173/?demo=1`. It is explicitly labelled, uses fictional names and non-payment placeholders, and never writes data. Login is disabled in this mode. In production the demo is excluded unless you deliberately build with `VITE_ENABLE_DEMO=true`.
 
@@ -75,11 +75,11 @@ Normal saves/deletes also attempt cleanup immediately. Replacement uploads first
 
 - Bucket `directory-assets` is private at the Storage setting level, with explicit anonymous read policies for currently referenced directory images. It is **not confidential** because the directory was intentionally made available without visitor login.
 - Only the authenticated download operation is permitted; listing, signed URL creation, transforms and all direct client uploads/updates/deletes are denied. Supabase's current `storage.allow_only_operation(text)` helper is required.
-- Browser and server accept PNG/JPEG/WebP up to 5 MB, maximum 40 megapixels. Server checks MIME against signatures, structure and dimensions; animated WebP is rejected. These are pragmatic format checks, not a full image decoder, malware scanner, QR decoder or ownership verification.
+- The browser accepts PNG/JPEG/WebP up to 4 MB through the Vercel admin backend, maximum 40 megapixels. The Supabase Edge validator retains a 5 MB ceiling for existing assets/direct authenticated requests. Server checks MIME against signatures, structure and dimensions; animated WebP is rejected. These are pragmatic format checks, not a full image decoder, malware scanner, QR decoder or ownership verification.
 - QR display and Save QR use the original bytes with original proportions and whitespace. Profile photos can be cropped visually for their avatar; QRs are never cropped, recolored or decorated.
 - Acknowledgement confirms that the admin has permission to share a receiving QR. It is not proof of ownership. Never upload authorization QRs. Provider labels do not guarantee interoperability.
 - Mutations use the previous update timestamp to reject stale edits. Labels normalize lowercase English alphanumerics so `ACME Pay` and `acme-pay` cannot duplicate an entry for one person.
-- Public content is still loaded fresh: no directory/image content in localStorage, IndexedDB or service-worker caches. Only static app assets are cached; Auth session persistence is allowed. Admin sign-out clears in-memory images and state before reloading public content. Images already saved or shared cannot be recalled.
+- Public content is still loaded fresh: no directory/image content in localStorage, IndexedDB or service-worker caches. Only static app assets are cached; Admin sessions use an encrypted HttpOnly cookie; Supabase auth persistence in browser storage is disabled. Admin sign-out clears in-memory images and state before reloading public content. Images already saved or shared cannot be recalled.
 
 ## Deploy / install
 
@@ -153,3 +153,7 @@ Migration `20261013085314_qr_palette_and_bulk_style.sql` and directory-manage ve
 ## Admin security setup
 
 See [ADMIN-SECURITY.md](./ADMIN-SECURITY.md) for Turnstile setup, server enforcement, rate limits, password protection, and deployment verification. CAPTCHA is not active until both the public site key and Supabase Auth settings are configured. External HTTPS QR imports remain supported.
+
+## HttpOnly admin sessions
+
+Admin login and mutations now go through the Vercel `/api/admin` backend. Read [COOKIE-SESSIONS.md](./COOKIE-SESSIONS.md) before deploying: configure server environment variables, apply the active-session migration, and redeploy directory-manage first. New uploads are limited to 4 MB by the frontend/backend proxy; existing images remain accessible.

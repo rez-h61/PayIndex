@@ -1,18 +1,27 @@
+import { withAdminLock } from './admin-session';
 import { createClient } from '@supabase/supabase-js';
 import { MAX_BYTES, validImageURL } from './config';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const configured = !!url && !!key && !url.includes('YOUR_PROJECT') && !key.includes('YOUR_');
 export const supabase = configured ? createClient(url, key, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
 }) : null;
+// Remove the old browser-managed Supabase session on migration. Never read or
+// transmit its contents, and never clear unrelated localStorage data.
+if (url) {
+  try {
+    const prefix = `sb-${new URL(url).hostname.split('.')[0]}-auth-token`;
+    for (const name of [prefix, `${prefix}-code-verifier`, `${prefix}-user`]) localStorage.removeItem(name);
+  } catch { /* Storage may be disabled; the new client never persists sessions. */ }
+}
 const urls = new Set<string>();
 export function objectURL(blob: Blob) { const u = URL.createObjectURL(blob); urls.add(u); return u; }
 export function releaseURL(u: string) { URL.revokeObjectURL(u); urls.delete(u); }
 export function clearURLs() { urls.forEach(u => URL.revokeObjectURL(u)); urls.clear(); }
 export async function validateImage(file: File) {
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > MAX_BYTES || !file.size) throw new Error('Choose a PNG, JPEG, or WebP image up to 5 MB.');
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > MAX_BYTES || !file.size) throw new Error('Choose a PNG, JPEG, or WebP image up to 4 MB.');
   const bitmap = await createImageBitmap(file).catch(() => { throw new Error('This image could not be opened. Choose another file.'); });
   const safe = bitmap.width > 0 && bitmap.height > 0 && bitmap.width * bitmap.height <= 40_000_000;
   bitmap.close();
@@ -33,21 +42,18 @@ export async function imageFromLink(url: string): Promise<File> {
   } catch { throw new Error('This link couldn’t be imported. Use a direct PNG, JPEG or WebP link that allows sharing, or upload the image instead.'); }
 }
 export async function manageDirectory(form: FormData, progress: (value: number) => void = () => {}) {
-  const { data } = await supabase!.auth.getSession();
-  if (!data.session) throw new Error('Please sign in again.');
-  return new Promise<{ cleanupPending?: boolean; id?: string }>((resolve, reject) => {
+  return withAdminLock(() => new Promise<{ cleanupPending?: boolean; id?: string }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${url}/functions/v1/directory-manage`);
-    xhr.setRequestHeader('Authorization', `Bearer ${data.session!.access_token}`);
-    xhr.setRequestHeader('apikey', key);
+    xhr.open('POST', '/api/admin?action=manage');
+    xhr.setRequestHeader('X-PayIndex-Request', 'admin');
     xhr.timeout = 120_000;
     xhr.upload.onprogress = e => { if (e.lengthComputable) progress(Math.min(95, Math.round(e.loaded / e.total * 95))); };
     xhr.onerror = xhr.ontimeout = () => reject(new Error('Connection interrupted. Refresh the directory before retrying; your change may have completed.'));
     xhr.onload = () => {
       let body; try { body = JSON.parse(xhr.responseText); } catch { reject(new Error('Unable to save right now. Please retry.')); return; }
       if (xhr.status >= 200 && xhr.status < 300) { progress(100); resolve(body); }
-      else reject(new Error(body.code === 'setup_required' || (body.code === 'invalid' && ['save_qr_style','bulk_qr_style'].includes(String(form.get('action')))) ? 'QR design setup is incomplete. Apply the latest database migration and deploy directory-manage.' : body.code === 'invalid_link' ? 'Enter a valid HTTPS website link.' : body.code === 'invalid_style' ? 'Choose a supported QR design.' : body.code === 'conflict' ? (form.get('action')==='save_share_url' ? 'The share link changed. Close and reopen this window before saving again.' : 'This payment option already exists or was changed. Refresh and try again.') : body.code === 'invalid_image' ? 'Choose a valid PNG, JPEG, or WebP image up to 5 MB.' : body.code === 'forbidden' ? 'Your access has changed. Refresh to continue.' : 'Unable to save right now. Please retry.'));
+      else reject(new Error(body.code === 'setup_required' || (body.code === 'invalid' && ['save_qr_style','bulk_qr_style'].includes(String(form.get('action')))) ? 'QR design setup is incomplete. Apply the latest database migration and deploy directory-manage.' : body.code === 'invalid_link' ? 'Enter a valid HTTPS website link.' : body.code === 'invalid_style' ? 'Choose a supported QR design.' : body.code === 'conflict' ? (form.get('action')==='save_share_url' ? 'The share link changed. Close and reopen this window before saving again.' : 'This payment option already exists or was changed. Refresh and try again.') : body.code === 'invalid_image' ? 'Choose a valid PNG, JPEG, or WebP image up to 4 MB.' : body.code === 'forbidden' ? 'Your access has changed. Refresh to continue.' : 'Unable to save right now. Please retry.'));
     };
     xhr.send(form);
-  });
+  }));
 }

@@ -1,3 +1,5 @@
+import { installAdminFixture } from './admin-fixture';
+import type { Route } from '@playwright/test';
 // UI fixtures only: this suite does not claim a hosted Supabase integration.
 import { test,expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -12,12 +14,9 @@ test('admin can create a person, add/replace/save a QR, and delete using backend
  });
  const png=readFileSync('public/icon-192.png');
  await page.route('https://images.example.test/**',route=>route.fulfill({status:200,contentType:'image/png',headers:{'access-control-allow-origin':'*'},body:png}));
- await page.route('https://*.supabase.co/**',async route=>{
-  const request=route.request(),url=new URL(request.url());const json=(body:unknown,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body),headers:{'access-control-allow-origin':'*'}});
+ const backendFixture = async (route: Route) => {
+  const request=route.request(),url=new URL(request.url());if(url.pathname==='/api/admin')url.pathname='/functions/v1/directory-manage';const json=(body:unknown,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(body),headers:{'access-control-allow-origin':'*'}});
   if(request.method()==='OPTIONS')return route.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*'}});
-  if(url.pathname==='/auth/v1/token')return json({access_token:'fixture-admin-token',refresh_token:'fixture-refresh',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'10000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:'admin@example.test',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-10-06T00:00:00Z'}});
-  if(url.pathname==='/auth/v1/logout')return json({});
-  if(url.pathname==='/rest/v1/rpc/is_directory_admin')return json(request.headers().authorization?.includes('fixture-admin-token')??false);
   if(url.pathname==='/rest/v1/directory_people')return json(people);
   if(url.pathname==='/rest/v1/directory_qrs')return json(qrs);
   if(url.pathname.startsWith('/storage/v1/object/')){const path=decodeURIComponent(url.pathname.split('/directory-assets/')[1]??'');return route.fulfill({status:images.has(path)?200:404,contentType:'image/png',body:images.get(path)??Buffer.from('missing')});}
@@ -31,7 +30,9 @@ test('admin can create a person, add/replace/save a QR, and delete using backend
    return json({id,cleanupPending:false});
   }
   return json({message:'Unexpected fixture request'},400);
- });
+  };
+  await page.route('https://*.supabase.co/**',backendFixture);
+  await installAdminFixture(page,backendFixture);
  await page.goto('/admin/login');await page.getByRole('textbox',{name:'Email',exact:true}).fill('admin@example.test');await page.getByLabel('Password',{exact:true}).fill('fixture-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await page.getByRole('button',{name:'Add person',exact:true}).click();await page.getByRole('textbox',{name:'Name',exact:true}).fill('Test Friend');await page.getByRole('radio',{name:'Image link',exact:true}).check();await page.getByRole('textbox',{name:'Direct image URL',exact:true}).fill('https://images.example.test/avatar.png');await page.getByRole('button',{name:'Save person',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Test Friend',exact:true})).toBeVisible();await page.getByRole('button',{name:'Add QR',exact:true}).click();await page.getByRole('combobox',{name:'Label',exact:true}).fill('Maybank');

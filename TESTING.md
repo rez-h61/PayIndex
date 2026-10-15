@@ -77,3 +77,14 @@ Reference-image sampling returned RGB (237,48,104), implemented as #ED3068. Vali
 Mobile/desktop browser workflows passed for 15 radio options (plus four shapes), Pink with Dots, checking every QR before confirmation, Back preserving the chosen draft, atomic fixture apply, reset cancellation, confirmed all-row reset, untouched original image paths, and blocking all writes when one QR cannot verify. All 120 palette/shape/logo combinations passed actual SVG raster/decode verification on the fictional fixture. The first expanded workflow test incorrectly toggled an already-open More options menu; the fixture was corrected and the rerun passed.
 
 Production build and frontend/Edge TypeScript checks passed. The live migration and directory-manage version 5 were deployed, then live SQL verified the bulk RPC exists, Pink is allowed, anon/authenticated execution is denied, and service_role is allowed. No live apply-all or reset-all was executed; the admin will choose and confirm that action. Frontend hosting deployment remains outstanding.
+
+
+## HttpOnly cookie session implementation — 15 October 2026
+
+- 54 Vitest tests passed, including the real-browser-to-API cookie/refresh/logout test and active-session RPC checks in PGlite.
+- 2 CAPTCHA browser tests passed through the new same-origin endpoint fixtures.
+- 7 targeted browser regressions passed across mobile/desktop: admin CRUD/upload, per-QR/bulk design, share-link editing, and the desktop palette matrix. The mobile palette-matrix duplicate is intentionally skipped.
+- The first mobile QR workflow run was interrupted while development files were changing; rerunning it alone against unchanged code passed.
+- Production build, application/backend TypeScript and Edge TypeScript passed. No cookie-secret/server-crypto source was found in the generated browser assets.
+- Hosted migration, Edge redeployment, Vercel API routing, production Secure-cookie flags and real Supabase refresh remain deployment checks. No live auth settings, data or deployment were changed in this implementation.
+- Follow COOKIE-SESSIONS.md before pushing to the production branch.
